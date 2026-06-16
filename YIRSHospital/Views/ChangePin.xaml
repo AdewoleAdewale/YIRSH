@@ -1,0 +1,268 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml" 
+             xmlns:yummy="clr-namespace:Xamarin.Forms.PancakeView;assembly=Xamarin.Forms.PancakeView" 
+             xmlns:renderers="clr-namespace:YIRSHospital.Services"
+             x:Class="YIRSHospital.Views.ChangePin"   
+             NavigationPage.HasNavigationBar="False"
+             BackgroundColor="Transparent">
+
+    <!-- Semi-transparent overlay -->
+    <Grid x:Name="MainContainer">
+        <BoxView BackgroundColor="Black" 
+                 Opacity="0" 
+                 x:Name="Overlay">
+            <BoxView.GestureRecognizers>
+                <TapGestureRecognizer Tapped="OnOverlayTapped"/>
+            </BoxView.GestureRecognizers>
+        </BoxView>
+
+        <!-- Bottom Sheet Container -->
+        <yummy:PancakeView
+            x:Name="BottomSheet"
+            VerticalOptions="End"
+            TranslationY="800"
+            BackgroundColor="White"
+            CornerRadius="30,30,0,0"
+            Elevation="10"
+            HasShadow="True">
+
+            <Grid RowDefinitions="Auto,*" Padding="0">
+
+                <!-- Drag Handle Area -->
+                <StackLayout Grid.Row="0" 
+                           Padding="0,15,0,10"
+                           BackgroundColor="Transparent">
+                    <BoxView BackgroundColor="#E0E0E0"
+                           WidthRequest="50"
+                           HeightRequest="5"
+                           CornerRadius="2.5"
+                           HorizontalOptions="Center"/>
+                </StackLayout>
+
+                <!-- Content Area with Scroll -->
+                <ScrollView Grid.Row="1" 
+                          HorizontalOptions="FillAndExpand" 
+                          VerticalOptions="FillAndExpand">
+                    <StackLayout Padding="30,10,30,40" Spacing="25">
+
+                        <!-- Header with Icon -->
+                        <StackLayout Spacing="15">
+                            <yummy:PancakeView
+                                BackgroundColor="#E8F5E9"
+                                CornerRadius="35"
+                                WidthRequest="70"
+                                HeightRequest="70"
+                                HorizontalOptions="Center">
+                                <Label Text="🔐"
+                                     FontSize="36"
+                                     HorizontalOptions="Center"
+                                     VerticalOptions="Center"/>
+                            </yummy:PancakeView>
+
+                            <Label Text="Change PIN"
+                                 FontAttributes="Bold"
+                                 FontSize="26"
+                                 TextColor="#004225"
+                                 HorizontalTextAlignment="Center"/>
+
+                            <Label Text="Keep your account secure"
+                                 FontSize="14"
+                                 TextColor="#757575"
+                                 HorizontalTextAlignment="Center"
+                                 Margin="0,-10,0,0"/>
+                        </StackLayout>
+
+                        <!-- Security Notice -->
+                        <yummy:PancakeView
+                            BackgroundColor="#E3F2FD"
+                            CornerRadius="14"
+                            Padding="16"
+                            HasShadow="False">
+                            <StackLayout Orientation="Horizontal" Spacing="12">
+                                <Label Text="💡" 
+                                     FontSize="20"
+                                     VerticalOptions="Start"/>
+                                <Label Text="Your PIN should be 4-6 digits and easy to remember but hard for others to guess."
+                                     TextColor="#1565C0"
+                                     FontSize="13"
+                                     VerticalOptions="Center"
+                                     HorizontalOptions="FillAndExpand"
+                                     LineBreakMode="WordWrap"/>
+                            </StackLayout>
+                        </yummy:PancakeView>
+
+                        <!-- Current PIN Field -->
+                        <StackLayout Spacing="10" x:Name="CurrentPinContainer">
+                            <Label Text="Current PIN"
+                                 Margin="5,0,0,0"
+                                 FontSize="15"
+                                 FontAttributes="Bold"
+                                 TextColor="#004225"/>
+                            <yummy:PancakeView
+                                Padding="15,0,15,0"
+                                BackgroundColor="#F5F5F5"
+                                BorderThickness="2"
+                                BorderColor="#E0E0E0"
+                                CornerRadius="14"
+                                HeightRequest="60"
+                                x:Name="CurrentPinBorder">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <renderers:BorderlessEntry
+                                        Grid.Column="0"
+                                        FontSize="18"
+                                        IsPassword="True"
+                                        Keyboard="Numeric"
+                                        MaxLength="6"
+                                        Placeholder="••••"
+                                        TextColor="#004225"
+                                        PlaceholderColor="#BDBDBD"
+                                        VerticalOptions="Center"
+                                        HorizontalTextAlignment="Center"
+                                        FontAttributes="Bold"
+                                        x:Name="OldPINEntry"
+                                        TextChanged="OnOldPinTextChanged"/>
+                                    <Label Grid.Column="1"
+                                         Text="👁️"
+                                         FontSize="20"
+                                         VerticalOptions="Center"
+                                         x:Name="CurrentPinToggle">
+                                        <Label.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnToggleCurrentPin"/>
+                                        </Label.GestureRecognizers>
+                                    </Label>
+                                </Grid>
+                            </yummy:PancakeView>
+
+                            <!-- PIN dots indicator for current PIN -->
+                            <Grid x:Name="CurrentPinDots" ColumnDefinitions="*,*,*,*,*,*" 
+                                  ColumnSpacing="8" 
+                                  HorizontalOptions="Center"
+                                  Margin="0,5,0,0">
+                                <yummy:PancakeView Grid.Column="0" WidthRequest="12" HeightRequest="12" CornerRadius="6" BackgroundColor="#E0E0E0" x:Name="CurrentDot1"/>
+                                <yummy:PancakeView Grid.Column="1" WidthRequest="12" HeightRequest="12" CornerRadius="6" BackgroundColor="#E0E0E0" x:Name="CurrentDot2"/>
+                                <yummy:PancakeView Grid.Column="2" WidthRequest="12" HeightRequest="12" CornerRadius="6" BackgroundColor="#E0E0E0" x:Name="CurrentDot3"/>
+                                <yummy:PancakeView Grid.Column="3" WidthRequest="12" HeightRequest="12" CornerRadius="6" BackgroundColor="#E0E0E0" x:Name="CurrentDot4"/>
+                                <yummy:PancakeView Grid.Column="4" WidthRequest="12" HeightRequest="12" CornerRadius="6" BackgroundColor="#E0E0E0" x:Name="CurrentDot5"/>
+                                <yummy:PancakeView Grid.Column="5" WidthRequest="12" HeightRequest="12" CornerRadius="6" BackgroundColor="#E0E0E0" x:Name="CurrentDot6"/>
+                            </Grid>
+                        </StackLayout>
+
+                        <!-- New PIN Field -->
+                        <StackLayout Spacing="10" x:Name="NewPinContainer">
+                            <Label Text="New PIN"
+                                 Margin="5,0,0,0"
+                                 FontSize="15"
+                                 FontAttributes="Bold"
+                                 TextColor="#004225"/>
+                            <yummy:PancakeView
+                                Padding="15,0,15,0"
+                                BackgroundColor="#F5F5F5"
+                                BorderThickness="2"
+                                BorderColor="#E0E0E0"
+                                CornerRadius="14"
+                                HeightRequest="60"
+                                x:Name="NewPinBorder">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <renderers:BorderlessEntry
+                                        Grid.Column="0"
+                                        FontSize="18"
+                                        IsPassword="True"
+                                        Keyboard="Numeric"
+                                        MaxLength="6"
+                                        Placeholder="••••"
+                                        TextColor="#004225"
+                                        PlaceholderColor="#BDBDBD"
+                                        VerticalOptions="Center"
+                                        HorizontalTextAlignment="Center"
+                                        FontAttributes="Bold"
+                                        x:Name="ConfirmPIN"
+                                        TextChanged="OnNewPinTextChanged"/>
+                                    <Label Grid.Column="1"
+                                         Text="👁️"
+                                         FontSize="20"
+                                         VerticalOptions="Center"
+                                         x:Name="NewPinToggle">
+                                        <Label.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnToggleNewPin"/>
+                                        </Label.GestureRecognizers>
+                                    </Label>
+                                </Grid>
+                            </yummy:PancakeView>
+
+                            <!-- PIN dots indicator for new PIN -->
+                            <Grid x:Name="NewPinDots" ColumnDefinitions="*,*,*,*,*,*" 
+                                  ColumnSpacing="8" 
+                                  HorizontalOptions="Center"
+                                  Margin="0,5,0,0">
+                                <yummy:PancakeView Grid.Column="0" WidthRequest="12" HeightRequest="12" CornerRadius="6" BackgroundColor="#E0E0E0" x:Name="NewDot1"/>
+                                <yummy:PancakeView Grid.Column="1" WidthRequest="12" HeightRequest="12" CornerRadius="6" BackgroundColor="#E0E0E0" x:Name="NewDot2"/>
+                                <yummy:PancakeView Grid.Column="2" WidthRequest="12" HeightRequest="12" CornerRadius="6" BackgroundColor="#E0E0E0" x:Name="NewDot3"/>
+                                <yummy:PancakeView Grid.Column="3" WidthRequest="12" HeightRequest="12" CornerRadius="6" BackgroundColor="#E0E0E0" x:Name="NewDot4"/>
+                                <yummy:PancakeView Grid.Column="4" WidthRequest="12" HeightRequest="12" CornerRadius="6" BackgroundColor="#E0E0E0" x:Name="NewDot5"/>
+                                <yummy:PancakeView Grid.Column="5" WidthRequest="12" HeightRequest="12" CornerRadius="6" BackgroundColor="#E0E0E0" x:Name="NewDot6"/>
+                            </Grid>
+                        </StackLayout>
+
+                        <!-- PIN Strength Feedback -->
+                        <StackLayout Spacing="8" x:Name="PinFeedback" IsVisible="False" Margin="5,0,5,0">
+                            <Label x:Name="FeedbackLabel"
+                                 FontSize="13"
+                                 TextColor="#757575"
+                                 HorizontalTextAlignment="Center"/>
+                            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="6">
+                                <BoxView Grid.Column="0" HeightRequest="4" CornerRadius="2" BackgroundColor="#E0E0E0" x:Name="PinStrength1"/>
+                                <BoxView Grid.Column="1" HeightRequest="4" CornerRadius="2" BackgroundColor="#E0E0E0" x:Name="PinStrength2"/>
+                                <BoxView Grid.Column="2" HeightRequest="4" CornerRadius="2" BackgroundColor="#E0E0E0" x:Name="PinStrength3"/>
+                            </Grid>
+                        </StackLayout>
+
+                        <!-- Update Button -->
+                        <yummy:PancakeView
+                            BackgroundGradientStartColor="#00532E"
+                            BackgroundGradientEndColor="#004225"
+                            BackgroundGradientAngle="135"
+                            CornerRadius="14"
+                            HeightRequest="60"
+                            Margin="0,15,0,0"
+                            HasShadow="True"
+                            Elevation="6"
+                            x:Name="UpdateButton">
+                            <Grid>
+                                <Label Text="Update PIN"
+                                     FontAttributes="Bold"
+                                     FontSize="17"
+                                     HorizontalOptions="Center"
+                                     TextColor="White"
+                                     VerticalOptions="Center"
+                                     x:Name="UpdateButtonLabel"/>
+                                <ActivityIndicator x:Name="UpdateLoader" 
+                                                 IsRunning="False" 
+                                                 IsVisible="False"
+                                                 Color="White"
+                                                 HorizontalOptions="Center"
+                                                 VerticalOptions="Center"/>
+                            </Grid>
+                            <yummy:PancakeView.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="TapGestureRecognizer_Tapped_1"/>
+                            </yummy:PancakeView.GestureRecognizers>
+                        </yummy:PancakeView>
+
+                        <!-- Cancel Button -->
+                        <Label Text="Cancel"
+                             FontSize="16"
+                             TextColor="#757575"
+                             HorizontalTextAlignment="Center"
+                             Margin="0,8,0,0">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnOverlayTapped"/>
+                            </Label.GestureRecognizers>
+                        </Label>
+
+                    </StackLayout>
+                </ScrollView>
+
+            </Grid>
+        </yummy:PancakeView>
+    </Grid>
+</ContentPage>

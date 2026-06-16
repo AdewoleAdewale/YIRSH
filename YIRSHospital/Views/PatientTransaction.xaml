@@ -1,0 +1,373 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:yummy="clr-namespace:Xamarin.Forms.PancakeView;assembly=Xamarin.Forms.PancakeView"
+             xmlns:renderers="clr-namespace:YIRSHospital.Services"
+             x:Class="YIRSHospital.Views.PatientTransaction"
+             Padding="0"
+             BackgroundColor="#F5F7FA"
+             NavigationPage.HasNavigationBar="True">
+
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <Style x:Key="HeaderLabelStyle" TargetType="Label">
+                <Setter Property="FontAttributes" Value="Bold"/>
+                <Setter Property="FontSize" Value="24"/>
+                <Setter Property="TextColor" Value="White"/>
+                <Setter Property="HorizontalTextAlignment" Value="Center"/>
+            </Style>
+
+            <Style x:Key="CardStyle" TargetType="yummy:PancakeView">
+                <Setter Property="BackgroundColor" Value="White"/>
+                <Setter Property="CornerRadius" Value="15"/>
+                <Setter Property="HasShadow" Value="True"/>
+                <Setter Property="Elevation" Value="8"/>
+            </Style>
+        </ResourceDictionary>
+    </ContentPage.Resources>
+
+    <ScrollView>
+        <StackLayout Spacing="0" Padding="0">
+
+            <!-- Header Section -->
+            <yummy:PancakeView BackgroundGradientStartColor="#004225" 
+                              BackgroundGradientEndColor="#00875A"
+                              BackgroundGradientAngle="135"
+                              Padding="20,50,20,30">
+                <StackLayout Spacing="15">
+
+                    <yummy:PancakeView Grid.Row="0"
+
+                               Margin="0,20,0,0"
+CornerRadius="0">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+
+                            <!-- Back Button -->
+                            <yummy:PancakeView Grid.Column="0"
+        BackgroundColor="#1A7A45"
+        CornerRadius="10"
+        Padding="10,8"
+        WidthRequest="20"
+        VerticalOptions="Center">
+                                <yummy:PancakeView.GestureRecognizers>
+                                    <TapGestureRecognizer Tapped="OnBackNavClicked"/>
+                                </yummy:PancakeView.GestureRecognizers>
+                                <StackLayout Orientation="Horizontal" Spacing="4" HorizontalOptions="Center">
+                                    <Label Text="‹" FontSize="22" TextColor="White" VerticalOptions="Center" FontAttributes="Bold"/>
+
+                                </StackLayout>
+                            </yummy:PancakeView>
+                        </Grid>
+                    </yummy:PancakeView>
+
+                    <!-- Hospital Logo -->
+                    <yummy:PancakeView CornerRadius="40" 
+                                      BackgroundColor="White"
+                                      WidthRequest="80" 
+                                      HeightRequest="80"
+                                      HasShadow="True"
+                                      Elevation="10"
+                                      HorizontalOptions="Center"
+                                      Padding="12">
+                        <Image Source="Yobe" 
+                               Aspect="AspectFit"/>
+                    </yummy:PancakeView>
+
+                    <Label Text="PATIENT TRANSACTION RECEIPT"
+                           Style="{StaticResource HeaderLabelStyle}"
+                           FontSize="22"/>
+
+                    <Label Text="YOBE STATE SPECIALIST HOSPITAL"
+                           FontSize="14"
+                           FontAttributes="Bold"
+                           TextColor="#B8E6CC"
+                           HorizontalTextAlignment="Center"/>
+                </StackLayout>
+            </yummy:PancakeView>
+
+            <!-- Search Section -->
+            <yummy:PancakeView Style="{StaticResource CardStyle}"
+                              Margin="20,-20,20,20"
+                              Padding="25">
+                <StackLayout Spacing="15">
+                    <Label Text="Enter Patient ID"
+                           FontAttributes="Bold"
+                           FontSize="16"
+                           TextColor="#004225"/>
+
+                    <yummy:PancakeView BackgroundColor="#F8F9FA"
+                                      BorderColor="#004225"
+                                      BorderThickness="2"
+                                      CornerRadius="12"
+                                      Padding="15,0"
+                                      HeightRequest="55">
+                        <Grid>
+                            <renderers:BorderlessEntry x:Name="Search" 
+                                                      Placeholder="e.g., 0584, PAT12345"
+                                                      FontSize="16"
+                                                      TextColor="#212529"
+                                                      PlaceholderColor="#6C757D"
+                                                      ClearButtonVisibility="WhileEditing"
+                                                      Keyboard="Text"
+                                                      ReturnType="Search"
+                                                      VerticalOptions="Center"
+                                                      Margin="0,0,40,0"/>
+                            <Label Text="🔍" 
+                                   FontSize="20"
+                                   VerticalOptions="Center"
+                                   HorizontalOptions="End"
+                                   Margin="0,0,10,0"/>
+                        </Grid>
+                    </yummy:PancakeView>
+
+                    <Label Text="💡 Enter valid patient identification number"
+                           FontSize="12"
+                           TextColor="#6C757D"
+                           Margin="5,0,0,0"/>
+
+                    <yummy:PancakeView BackgroundGradientStartColor="#004225"
+                                      BackgroundGradientEndColor="#00875A"
+                                      BackgroundGradientAngle="45"
+                                      CornerRadius="12"
+                                      HasShadow="True"
+                                      Elevation="5">
+                        <Button x:Name="searchButton"
+                                Text=" FETCH TRANSACTIONS"
+                                BackgroundColor="Transparent"
+                                TextColor="White"
+                                FontAttributes="Bold"
+                                FontSize="16"
+                                HeightRequest="55"
+                                Clicked="Button_Clicked">
+                            <Button.Triggers>
+                                <Trigger TargetType="Button" Property="IsEnabled" Value="False">
+                                    <Setter Property="Opacity" Value="0.5"/>
+                                </Trigger>
+                            </Button.Triggers>
+                        </Button>
+                    </yummy:PancakeView>
+                </StackLayout>
+            </yummy:PancakeView>
+
+            <!-- Receipt Container -->
+            <StackLayout x:Name="ReceiptContainer" 
+                        IsVisible="False"
+                        Opacity="0"
+                        Padding="20,0,20,20"
+                        Spacing="20">
+
+                <!-- Patient Information Card -->
+                <yummy:PancakeView Style="{StaticResource CardStyle}">
+                    <StackLayout Spacing="0">
+                        <!-- Header -->
+                        <yummy:PancakeView BackgroundGradientStartColor="#004225"
+                                          BackgroundGradientEndColor="#00875A"
+                                          BackgroundGradientAngle="45"
+                                          CornerRadius="15,15,0,0"
+                                          Padding="20">
+                            <StackLayout Spacing="10">
+                                <Label Text="TRANSACTION SUMMARY"
+                                       FontSize="12"
+                                       TextColor="#B8E6CC"
+                                       FontAttributes="Bold"
+                                       HorizontalTextAlignment="Center"/>
+
+                                <Label x:Name="PatientNameLabel"
+                                       FontSize="22"
+                                       TextColor="White"
+                                       FontAttributes="Bold"
+                                       HorizontalTextAlignment="Center"/>
+
+                                <Label x:Name="PatientIdLabel"
+                                       FontSize="14"
+                                       TextColor="#B8E6CC"
+                                       HorizontalTextAlignment="Center"/>
+                            </StackLayout>
+                        </yummy:PancakeView>
+
+                        <!-- Summary Statistics -->
+                        <Grid Padding="20"
+                              ColumnDefinitions="*,*"
+                              ColumnSpacing="15"
+                              RowSpacing="15">
+
+                            <!-- Total Transactions -->
+                            <yummy:PancakeView Grid.Column="0"
+                                              BackgroundGradientStartColor="#E3F2FD"
+                                              BackgroundGradientEndColor="#BBDEFB"
+                                              BackgroundGradientAngle="45"
+                                              CornerRadius="12"
+                                              Padding="15"
+                                              HasShadow="True"
+                                              Elevation="3">
+                                <StackLayout Spacing="5">
+                                    <Label Text="Total Transactions"
+                                           FontSize="11"
+                                           TextColor="#1976D2"
+                                           FontAttributes="Bold"
+                                           HorizontalTextAlignment="Center"/>
+                                    <Label x:Name="TotalTransactionsLabel"
+                                           FontSize="24"
+                                           TextColor="#0D47A1"
+                                           FontAttributes="Bold"
+                                           HorizontalTextAlignment="Center"/>
+                                </StackLayout>
+                            </yummy:PancakeView>
+
+                            <!-- Total Amount -->
+                            <yummy:PancakeView Grid.Column="1"
+                                              BackgroundGradientStartColor="#FFF3E0"
+                                              BackgroundGradientEndColor="#FFE0B2"
+                                              BackgroundGradientAngle="45"
+                                              CornerRadius="12"
+                                              Padding="15"
+                                              HasShadow="True"
+                                              Elevation="3">
+                                <StackLayout Spacing="5">
+                                    <Label Text="Total Amount"
+                                           FontSize="11"
+                                           TextColor="#E65100"
+                                           FontAttributes="Bold"
+                                           HorizontalTextAlignment="Center"/>
+                                    <Label x:Name="TotalAmountLabel"
+                                           FontSize="20"
+                                           TextColor="#BF360C"
+                                           FontAttributes="Bold"
+                                           HorizontalTextAlignment="Center"/>
+                                </StackLayout>
+                            </yummy:PancakeView>
+                        </Grid>
+
+                        <!-- Hospital Logo -->
+                        <StackLayout Padding="20,0,20,20" Spacing="10">
+                            <BoxView HeightRequest="1" 
+                                    Color="#E0E0E0" 
+                                    HorizontalOptions="FillAndExpand"
+                                    Margin="0,0,0,10"/>
+
+                            <Image Source="Yobe.png" 
+                                   HeightRequest="60"
+                                   WidthRequest="60"
+                                   Aspect="AspectFit"
+                                   HorizontalOptions="Center"/>
+
+                            <Label Text="YOBE STATE HOSPITAL MANAGEMENT"
+                                   FontSize="13"
+                                   FontAttributes="Bold"
+                                   TextColor="#004225"
+                                   HorizontalTextAlignment="Center"/>
+
+                            <Label Text="YOBE STATE SPECIALIST HOSPITAL"
+                                   FontSize="11"
+                                   TextColor="#666666"
+                                   HorizontalTextAlignment="Center"
+                                   LineBreakMode="WordWrap"
+                                   Margin="0,0,0,10"/>
+                        </StackLayout>
+                    </StackLayout>
+                </yummy:PancakeView>
+
+                <!-- Transactions List Header -->
+                <Label Text="TRANSACTION DETAILS"
+                       FontAttributes="Bold"
+                       FontSize="16"
+                       TextColor="#004225"
+                       Margin="0,10,0,0"/>
+
+                <!-- Transactions Stack -->
+                <StackLayout x:Name="TransactionsStack" Spacing="0"/>
+
+                <!-- Receipt Footer -->
+                <yummy:PancakeView BackgroundColor="White"
+                                  BorderColor="#E0E0E0"
+                                  BorderThickness="1"
+                                  CornerRadius="12"
+                                  Padding="20"
+                                  HasShadow="True"
+                                  Elevation="2">
+                    <StackLayout Spacing="15">
+                        <BoxView HeightRequest="1" 
+                                Color="#E0E0E0" 
+                                HorizontalOptions="FillAndExpand"/>
+
+                        <Label Text="VERIFICATION DETAILS"
+                               FontSize="12"
+                               FontAttributes="Bold"
+                               TextColor="#666666"
+                               HorizontalTextAlignment="Center"/>
+
+                        <yummy:PancakeView BackgroundColor="#F8F9FA"
+                                          BorderColor="#DEE2E6"
+                                          BorderThickness="1"
+                                          CornerRadius="8"
+                                          Padding="12"
+                                          HorizontalOptions="Center">
+                            <Image Source="image.png"
+                                   HeightRequest="150"
+                                   WidthRequest="150"
+                                   Aspect="AspectFit"/>
+                        </yummy:PancakeView>
+
+                        <Label x:Name="GeneratedDate"
+                               FontSize="10"
+                               TextColor="#999999"
+                               HorizontalTextAlignment="Center"/>
+
+                        <Label Text="⚠️ This is an official transaction record. Keep for your records."
+                               FontSize="11"
+                               TextColor="#666666"
+                               HorizontalTextAlignment="Center"
+                               LineBreakMode="WordWrap"
+                               Margin="10,5,10,0"/>
+                    </StackLayout>
+                </yummy:PancakeView>
+
+                <!-- Share Button -->
+                <yummy:PancakeView x:Name="ShareButton"
+                                  BackgroundGradientStartColor="#25D366"
+                                  BackgroundGradientEndColor="#1DA851"
+                                  BackgroundGradientAngle="45"
+                                  CornerRadius="12"
+                                  HasShadow="True"
+                                  Elevation="8"
+                                  IsVisible="False"
+                                  Margin="0,10,0,0">
+                    <Button Text=" SHARE RECEIPT"
+                            BackgroundColor="Transparent"
+                            TextColor="White"
+                            FontAttributes="Bold"
+                            FontSize="16"
+                            HeightRequest="55"
+                            Clicked="ShareButton_Clicked"/>
+                </yummy:PancakeView>
+            </StackLayout>
+
+            <!-- Footer Information -->
+            <StackLayout Padding="20,20,20,30" Spacing="12" BackgroundColor="#F5F7FA">
+                <BoxView HeightRequest="1" 
+                        Color="#CCCCCC" 
+                        Opacity="0.5"
+                        HorizontalOptions="FillAndExpand"
+                        Margin="40,0"/>
+
+                <Label Text="For inquiries and support"
+                       FontSize="12"
+                       FontAttributes="Bold"
+                       TextColor="#004225"
+                       HorizontalTextAlignment="Center"/>
+
+                <Label Text="📧 support@yobe.osoftpay.net"
+                       FontSize="12"
+                       TextColor="#666666"
+                       HorizontalTextAlignment="Center"/>
+
+                <Label Text="Powered by OSoftpay"
+                       FontSize="11"
+                       TextColor="#999999"
+                       HorizontalTextAlignment="Center"
+                       Margin="0,10,0,0"/>
+            </StackLayout>
+
+        </StackLayout>
+    </ScrollView>
+</ContentPage>

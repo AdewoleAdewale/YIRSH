@@ -1,0 +1,376 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:yummy="clr-namespace:Xamarin.Forms.PancakeView;assembly=Xamarin.Forms.PancakeView"
+             xmlns:renderers1="clr-namespace:YIRSHospital.Services"
+             x:Class="YIRSHospital.Views.RegisterPatient"
+             BackgroundColor="#004225"
+             NavigationPage.HasNavigationBar="True"
+             Title="Patient Registration">
+
+    <ScrollView HorizontalOptions="FillAndExpand" VerticalOptions="FillAndExpand">
+        <StackLayout Spacing="0" Padding="0,0,0,20">
+
+            <!-- Modern Header Section -->
+            <yummy:PancakeView
+                BackgroundColor="#004225"
+                Padding="20,30,20,25"
+                CornerRadius="0,0,30,30"
+                HasShadow="True"
+                Elevation="8">
+                <StackLayout Spacing="8">
+                    <Image Source="Yobe" Aspect="AspectFit" HeightRequest="70"
+                      />
+                    <Label
+                        FontAttributes="Bold"
+                        FontSize="26"
+                        Text="Patient Registration"
+                        TextColor="White"
+                        HorizontalTextAlignment="Center" />
+                    <Label
+                        FontSize="14"
+                        Text="Please fill out all required information carefully"
+                        TextColor="#C9E4EA"
+                        HorizontalTextAlignment="Center"
+                        Margin="0,5,0,0" />
+                </StackLayout>
+            </yummy:PancakeView>
+
+            <!-- Main Form Container with Shadow -->
+            <yummy:PancakeView
+                Margin="15,20,15,0"
+                Padding="20,25"
+                BackgroundColor="White"
+                CornerRadius="25"
+                HasShadow="True"
+                Elevation="10"
+                BorderColor="#E0E0E0"
+                BorderThickness="1">
+
+                <StackLayout Spacing="20">
+
+                    <!-- Alert Banner -->
+                    <yummy:PancakeView
+                        Padding="15"
+                        BackgroundGradientStartColor="#FFF8E1"
+                        BackgroundGradientEndColor="#FFECB3"
+                        CornerRadius="15"
+                        HasShadow="True"
+                        Elevation="2">
+                        <StackLayout Orientation="Horizontal" Spacing="12">
+                            <Label Text="⚠️" FontSize="22" VerticalOptions="Center"/>
+                            <Label 
+                                Text="All fields marked with * are mandatory and must be completed"
+                                TextColor="#F57C00"
+                                FontSize="13"
+                                FontAttributes="Bold"
+                                VerticalOptions="Center"
+                                HorizontalOptions="FillAndExpand"
+                                LineBreakMode="WordWrap"/>
+                        </StackLayout>
+                    </yummy:PancakeView>
+
+                    <!-- Section 1: Basic Patient Information -->
+                    <yummy:PancakeView
+                        Padding="15,12"
+                        BackgroundColor="#E3F2FD"
+                        CornerRadius="12">
+                        <Label 
+                            Text="Basic Patient Information" 
+                            FontSize="17" 
+                            FontAttributes="Bold" 
+                            TextColor="#004225"/>
+                    </yummy:PancakeView>
+
+                    <!-- Full Name -->
+                    <StackLayout Spacing="8">
+                        <Label
+                            FontSize="14"
+                            FontAttributes="Bold"
+                            Text="Full Name *"
+                            TextColor="#004225" />
+                        <yummy:PancakeView
+                            Padding="18,0"
+                            BackgroundColor="#F5F5F5"
+                            BorderThickness="2"
+                            BorderColor="#004225"
+                            CornerRadius="15"
+                            HeightRequest="52"
+                            HasShadow="True"
+                            Elevation="2">
+                            <renderers1:BorderlessEntry
+                                FontSize="15"
+                                ClearButtonVisibility="WhileEditing"
+                                Keyboard="Text"
+                                Placeholder="Enter patient's full name"
+                                PlaceholderColor="#999"
+                                TextColor="#212121"
+                                x:Name="FullName"/>
+                        </yummy:PancakeView>
+                    </StackLayout>
+
+                    <!-- Patient Number -->
+                    <StackLayout Spacing="8">
+                        <Label
+                            FontSize="14"
+                            FontAttributes="Bold"
+                            Text="Patient Number *"
+                            TextColor="#004225" />
+                        <yummy:PancakeView
+                            Padding="18,0"
+                            BackgroundColor="#F5F5F5"
+                            BorderThickness="2"
+                            BorderColor="#004225"
+                            CornerRadius="15"
+                            HeightRequest="52"
+                            HasShadow="True"
+                            Elevation="2">
+                            <renderers1:BorderlessEntry
+                                FontSize="15"
+                                ClearButtonVisibility="WhileEditing"
+                                Keyboard="Numeric"
+                                Placeholder="Enter patient number"
+                                PlaceholderColor="#999"
+                                TextColor="#212121"
+                                x:Name="PatientNo"/>
+                        </yummy:PancakeView>
+                    </StackLayout>
+
+                    <!-- Phone Number -->
+                    <StackLayout Spacing="8">
+                        <Label
+                            FontSize="14"
+                            FontAttributes="Bold"
+                            Text="Phone Number *"
+                            TextColor="#004225" />
+                        <yummy:PancakeView
+                            Padding="18,0"
+                            BackgroundColor="#F5F5F5"
+                            BorderThickness="2"
+                            BorderColor="#004225"
+                            CornerRadius="15"
+                            HeightRequest="52"
+                            HasShadow="True"
+                            Elevation="2">
+                            <renderers1:BorderlessEntry
+                                FontSize="15"
+                                ClearButtonVisibility="WhileEditing"
+                                Keyboard="Telephone"
+                                MaxLength="11"
+                                Placeholder="Enter 10-11 digit phone number"
+                                PlaceholderColor="#999"
+                                TextColor="#212121"
+                                x:Name="PhoneNumber"/>
+                        </yummy:PancakeView>
+                    </StackLayout>
+
+                 
+                    <!-- Address -->
+                    <StackLayout Spacing="8">
+                        <Label
+                            FontSize="14"
+                            FontAttributes="Bold"
+                            Text="Home Address *"
+                            TextColor="#004225" />
+                        <yummy:PancakeView
+                            Padding="18,12"
+                            BackgroundColor="#F5F5F5"
+                            BorderThickness="2"
+                            BorderColor="#004225"
+                            CornerRadius="15"
+                            HeightRequest="50"
+                            HasShadow="True"
+                            Elevation="2">
+                            <renderers1:BorderlessEntry
+                                FontSize="15"
+                                Placeholder="Enter complete home address (minimum 10 characters)"
+                                PlaceholderColor="#999"
+                                TextColor="#212121"
+                                x:Name="Address"/>
+                        </yummy:PancakeView>
+                    </StackLayout>
+
+                    <!-- Section 2: Personal Details -->
+                    <yummy:PancakeView
+                        Padding="15,12"
+                        BackgroundColor="#E8F5E9"
+                        CornerRadius="12"
+                        Margin="0,10,0,0">
+                        <Label 
+                            Text=" Personal Details" 
+                            FontSize="17" 
+                            FontAttributes="Bold" 
+                            TextColor="#2E7D32"/>
+                    </yummy:PancakeView>
+
+                    <!-- Gender -->
+                    <StackLayout Spacing="8">
+                        <Label
+                            FontSize="14"
+                            FontAttributes="Bold"
+                            Text="Gender *"
+                            TextColor="#004225" />
+                        <yummy:PancakeView
+                            Padding="18,0"
+                            BackgroundColor="#F5F5F5"
+                            BorderThickness="2"
+                            BorderColor="#004225"
+                            CornerRadius="15"
+                            HeightRequest="52"
+                            HasShadow="True"
+                            Elevation="2">
+                            <Picker x:Name="GenderPicker" 
+                                    Title="Select gender" 
+                                    FontSize="15" 
+                                    TitleColor="#999" 
+                                    TextColor="#212121">
+                                <Picker.ItemsSource>
+                                    <x:Array Type="{x:Type x:String}">
+                                        <x:String>Male</x:String>
+                                        <x:String>Female</x:String>
+                                        <x:String>Other</x:String>
+                                    </x:Array>
+                                </Picker.ItemsSource>
+                            </Picker>
+                        </yummy:PancakeView>
+                    </StackLayout>
+
+                    <!-- Age -->
+                    <StackLayout Spacing="8">
+                        <Label
+                            FontSize="14"
+                            FontAttributes="Bold"
+                            Text="Age (Years) *"
+                            TextColor="#004225" />
+                        <yummy:PancakeView
+                            Padding="18,0"
+                            BackgroundColor="#F5F5F5"
+                            BorderThickness="2"
+                            BorderColor="#004225"
+                            CornerRadius="15"
+                            HeightRequest="52"
+                            HasShadow="True"
+                            Elevation="2">
+                            <renderers1:BorderlessEntry
+                                FontSize="15"
+                                ClearButtonVisibility="WhileEditing"
+                                Keyboard="Numeric"
+                                Placeholder="Enter age (1-150)"
+                                PlaceholderColor="#999"
+                                TextColor="#212121"
+                                MaxLength="3"
+                                x:Name="Age"/>
+                        </yummy:PancakeView>
+                    </StackLayout>
+
+                    <!-- Marital Status -->
+                    <StackLayout Spacing="8">
+                        <Label
+                            FontSize="14"
+                            FontAttributes="Bold"
+                            Text="Marital Status *"
+                            TextColor="#004225" />
+                        <yummy:PancakeView
+                            Padding="18,0"
+                            BackgroundColor="#F5F5F5"
+                            BorderThickness="2"
+                            BorderColor="#004225"
+                            CornerRadius="15"
+                            HeightRequest="52"
+                            HasShadow="True"
+                            Elevation="2">
+                            <Picker x:Name="MaritalStatusPicker" 
+                                    Title="Select marital status" 
+                                    FontSize="15" 
+                                    TitleColor="#999" 
+                                    TextColor="#212121">
+                                <Picker.ItemsSource>
+                                    <x:Array Type="{x:Type x:String}">
+                                        <x:String>Single</x:String>
+                                        <x:String>Married</x:String>
+                                        <x:String>Divorced</x:String>
+                                        <x:String>Widowed</x:String>
+                                    </x:Array>
+                                </Picker.ItemsSource>
+                            </Picker>
+                        </yummy:PancakeView>
+                    </StackLayout>
+
+                 
+
+                    <!-- Privacy Notice -->
+                    <yummy:PancakeView
+                        Padding="15"
+                        BackgroundColor="#E1F5FE"
+                        CornerRadius="12"
+                        BorderColor="#004225"
+                        BorderThickness="1"
+                        Margin="0,10,0,0">
+                        <StackLayout Spacing="8">
+                            <Label 
+                                Text="🔒 Privacy Notice"
+                                FontSize="14"
+                                FontAttributes="Bold"
+                                TextColor="#004225"/>
+                            <Label 
+                                Text="All patient information is kept confidential and secure in accordance with healthcare privacy regulations."
+                                FontSize="12"
+                                TextColor="#004225"
+                                LineBreakMode="WordWrap"/>
+                        </StackLayout>
+                    </yummy:PancakeView>
+
+                    <!-- Submit Button -->
+                    <yummy:PancakeView
+                        Margin="0,25,0,0"
+                        BackgroundGradientStartColor="#004225"
+                        BackgroundGradientEndColor="ForestGreen"
+                        CornerRadius="18"
+                        HasShadow="True"
+                        Elevation="8"
+                        HeightRequest="58"
+                        HorizontalOptions="FillAndExpand">
+                        <Label
+                            FontAttributes="Bold"
+                            FontSize="17"
+                            HorizontalOptions="Center"
+                            Text="REGISTER PATIENT"
+                            TextColor="White"
+                            VerticalOptions="Center">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="TapGestureRecognizer_Tapped"/>
+                            </Label.GestureRecognizers>
+                        </Label>
+                        <yummy:PancakeView.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="TapGestureRecognizer_Tapped"/>
+                        </yummy:PancakeView.GestureRecognizers>
+                    </yummy:PancakeView>
+
+                    <!-- Help Section -->
+                    <yummy:PancakeView
+                        Padding="15,12"
+                        BackgroundColor="#FFFDE7"
+                        CornerRadius="12"
+                        Margin="0,15,0,0">
+                        <StackLayout Spacing="5">
+                            <Label 
+                                Text=" Need Help?"
+                                FontSize="13"
+                                FontAttributes="Bold"
+                                TextColor="#F57F17"
+                                HorizontalTextAlignment="Center"/>
+                            <Label 
+                                Text="Contact hospital administration for registration assistance"
+                                FontSize="12"
+                                TextColor="#F9A825"
+                                HorizontalTextAlignment="Center"
+                                LineBreakMode="WordWrap"/>
+                        </StackLayout>
+                    </yummy:PancakeView>
+
+                </StackLayout>
+            </yummy:PancakeView>
+
+        </StackLayout>
+    </ScrollView>
+</ContentPage>
