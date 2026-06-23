@@ -903,7 +903,7 @@ CornerRadius="0">
                                                    CornerRadius="12"
                                                    Padding="10,14">
                                     <StackLayout HorizontalOptions="Center" Spacing="5">
-                                        <Label Text="💵" FontSize="24" HorizontalOptions="Center"/>
+                                        <Label Text="+" FontSize="24" HorizontalOptions="Center" TextColor="DarkGray" FontAttributes="Bold"/>
                                         <Label x:Name="CashMethodLabel"
                                                Text="Cash"
                                                FontSize="13"
@@ -924,7 +924,7 @@ CornerRadius="0">
                                                    CornerRadius="12"
                                                    Padding="10,14">
                                     <StackLayout HorizontalOptions="Center" Spacing="5">
-                                        <Label Text="🏦" FontSize="24" HorizontalOptions="Center"/>
+                                        <Label Text="+" FontSize="24" HorizontalOptions="Center" TextColor="DarkGray" FontAttributes="Bold"/>
                                         <Label x:Name="TransferMethodLabel"
                                                Text="Transfer"
                                                FontSize="13"
@@ -945,7 +945,7 @@ CornerRadius="0">
                                                    CornerRadius="12"
                                                    Padding="10,14">
                                     <StackLayout HorizontalOptions="Center" Spacing="5">
-                                        <Label Text="💳" FontSize="24" HorizontalOptions="Center"/>
+                                        <Label Text="+" FontSize="24" HorizontalOptions="Center" TextColor="DarkGray" FontAttributes="Bold"/>
                                         <Label x:Name="CardMethodLabel"
                                                Text="Card"
                                                FontSize="13"
@@ -1104,7 +1104,7 @@ CornerRadius="0">
                                                WidthRequest="90"
                                                HeightRequest="90"
                                                HorizontalOptions="Center">
-                                <Label Text="✓"
+                                <Label Text="✓"  
                                        FontSize="54"
                                        FontAttributes="Bold"
                                        TextColor="White"
@@ -1152,7 +1152,7 @@ CornerRadius="0">
                                                    HorizontalOptions="Center"
                                                    Margin="0,4,0,0">
                                     <StackLayout Orientation="Horizontal" Spacing="6" HorizontalOptions="Center">
-                                        <Label x:Name="CopyStatusIcon" Text="📋" FontSize="14" VerticalOptions="Center"/>
+                                        <Label x:Name="CopyStatusIcon" Text="+" FontSize="14" VerticalOptions="Center" TextColor="#065F46" FontAttributes="Bold"/>
                                         <Label x:Name="CopyStatusLabel"
                                                Text="Tap to copy"
                                                FontSize="12"
@@ -1349,7 +1349,7 @@ CornerRadius="0">
                                        CornerRadius="20,20,0,0"
                                        Padding="25,28">
                         <StackLayout Spacing="10" HorizontalOptions="Center">
-                            <Label Text="💳"
+                            <Label Text="+" TextColor="White" FontAttributes="Bold"
                                    FontSize="48"
                                    HorizontalOptions="Center"/>
                             <Label Text="Card Payment"

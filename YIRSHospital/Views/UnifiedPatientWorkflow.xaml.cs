@@ -99,8 +99,7 @@ namespace YIRSHospital.Views
             protected virtual void OnPropertyChanged([CallerMemberName] string p = null)
                 => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(p));
         }
-        public class PaymentServiceItem { public string serviceName { get; set; } public int quantity { get; set; } }
-
+  
         public class PaymentRequest
         {
             public string revName { get; set; }
@@ -112,6 +111,17 @@ namespace YIRSHospital.Views
             public List<PaymentServiceItem> services { get; set; }
         }
 
+        public class PaymentServiceItem
+        {
+            [JsonProperty("ServiceName")]
+            public string serviceName { get; set; }
+
+            [JsonProperty("Quantity")]
+            public int quantity { get; set; }
+
+            [JsonProperty("Amount")]
+            public decimal Amount { get; set; }
+        }
         public class PaymentResponse
         {
             public string respondCode { get; set; }
@@ -534,7 +544,7 @@ namespace YIRSHospital.Views
             {
                 RegSuccessPatientId.Text = response.PatientId ?? "N/A";
                 CopyStatusLabel.Text = "Tap to copy";
-                CopyStatusIcon.Text = "📋";
+                CopyStatusIcon.Text = "+";
 
                 // Auto-copy on show
                 TryCopyToClipboard(response.PatientId);
@@ -554,7 +564,7 @@ namespace YIRSHospital.Views
             CopyStatusIcon.Text = "✓";
             CopyStatusLabel.Text = "Copied!";
             await Task.Delay(2000);
-            CopyStatusIcon.Text = "📋";
+            CopyStatusIcon.Text = "+";
             CopyStatusLabel.Text = "Tap to copy";
         }
 
@@ -669,7 +679,7 @@ namespace YIRSHospital.Views
                 {
                     PaymentServicesContainer.Children.Add(new Label
                     {
-                        Text = $"📋 {g.Key}",
+                        Text = $"+ {g.Key}",
                         FontSize = 13,
                         FontAttributes = FontAttributes.Bold,
                         TextColor = Color.FromHex("#004225"),
@@ -1065,7 +1075,8 @@ namespace YIRSHospital.Views
                             services = deptGroup.Select(s => new PaymentServiceItem
                             {
                                 serviceName = s.serviceName,
-                                quantity = s.Quantity
+                                quantity = s.Quantity,
+                                Amount = s.amount, // <- use numeric amount instead of parsing formatted string
                             }).ToList()
                         };
 
@@ -1081,7 +1092,8 @@ namespace YIRSHospital.Views
                     }
                 }
 
-                FinalisePaymentResult(allResponses, errors, _selectedPaymentMethod);
+                decimal fallbackTotal = selectedServices.Sum(s => s.SubTotal);
+                FinalisePaymentResult(allResponses, errors, _selectedPaymentMethod, fallbackTotal);
             }
             catch (InvalidOperationException ex)
             {
@@ -1124,14 +1136,20 @@ namespace YIRSHospital.Views
         //  FINALISE & SHOW RESULT
         // ─────────────────────────────────────────────────────────
 
-        private void FinalisePaymentResult(List<PaymentResponse> responses, List<string> errors, string method)
+        private void FinalisePaymentResult(
+      List<PaymentResponse> responses,
+      List<string> errors,
+      string method,
+      decimal fallbackTotal = 0)          // ← new parameter
         {
+            decimal apiTotal = responses.Sum(r => r.totalAmount);
+
             var result = new PaymentResultData
             {
                 IsSuccess = responses.Any(),
                 Responses = responses,
                 TransactionNumbers = responses.Select(r => r.transactionNo).ToList(),
-                TotalAmount = responses.Sum(r => r.totalAmount),
+                TotalAmount = apiTotal > 0 ? apiTotal : fallbackTotal,   // ← use fallback when API returns 0
                 ErrorDetails = errors.Any() ? string.Join("\n", errors) : null,
                 PaymentMethod = method
             };
@@ -1192,15 +1210,53 @@ namespace YIRSHospital.Views
                             Padding = new Thickness(16),
                             Margin = new Thickness(0, 6)
                         };
-
                         var stack = new StackLayout { Spacing = 6 };
                         stack.Children.Add(new Label { Text = $"Ref: {resp.transactionNo ?? "N/A"}", FontSize = 14, FontAttributes = FontAttributes.Bold, TextColor = Color.FromHex("#1A202C") });
-                        stack.Children.Add(new Label { Text = $"Amount: ₦{resp.totalAmount:N2}", FontSize = 15, FontAttributes = FontAttributes.Bold, TextColor = Color.FromHex("#10B981") });
+
+                        decimal displayAmount = resp.totalAmount > 0 ? resp.totalAmount : resp.breakdown?.Sum(b => b.subTotal) > 0  ? resp.breakdown.Sum(b => b.subTotal) : result.TotalAmount;    // ← final fallback: client-calculated total
+
+                        stack.Children.Add(new Label
+                        {
+                            Text = $"Amount: ₦{displayAmount:N2}",
+                            FontSize = 15,
+                            FontAttributes = FontAttributes.Bold,
+                            TextColor = Color.FromHex("#10B981")
+                        });
 
                         if (resp.breakdown?.Any() == true)
                         {
                             foreach (var item in resp.breakdown)
-                                stack.Children.Add(new Label { Text = $"  · {item.serviceName} ×{item.quantity} = ₦{item.subTotal:N2}", FontSize = 12, TextColor = Color.FromHex("#475569") });
+                            {
+                                decimal itemSubTotal = item.subTotal;
+                                decimal unitPrice = item.amount;
+
+                                // When API returns 0s (e.g. DRF variable-price), look up the
+                                // still-selected service in the view model for the real values.
+                                if (itemSubTotal <= 0 || unitPrice <= 0)
+                                {
+                                    var match = _viewModel.AllServices?.FirstOrDefault(s =>
+                                        s.IsSelected &&
+                                        string.Equals(s.serviceName?.Trim(),
+                                                       item.serviceName?.Trim(),
+                                                       StringComparison.OrdinalIgnoreCase));
+                                    if (match != null)
+                                    {
+                                        unitPrice = match.amount;
+                                        itemSubTotal = match.SubTotal;   // amount × quantity
+                                    }
+                                    else if (unitPrice <= 0 && item.quantity > 0 && itemSubTotal > 0)
+                                    {
+                                        unitPrice = itemSubTotal / item.quantity;
+                                    }
+                                }
+
+                                stack.Children.Add(new Label
+                                {
+                                    Text = $"  · {item.serviceName} ×{item.quantity} = ₦{itemSubTotal:N2}  (@₦{unitPrice:N2} each)",
+                                    FontSize = 12,
+                                    TextColor = Color.FromHex("#475569")
+                                });
+                            }
                         }
 
                         frame.Content = stack;
@@ -1310,22 +1366,43 @@ namespace YIRSHospital.Views
                 {
                     foreach (var item in response.breakdown)
                     {
+                        decimal itemSubTotal = item.subTotal;
+                        decimal unitPrice = item.amount > 0 ? item.amount : 0;
+
+                        if (itemSubTotal <= 0 || unitPrice <= 0)
+                        {
+                            var match = _viewModel.AllServices?.FirstOrDefault(s =>
+                                s.IsSelected &&
+                                string.Equals(s.serviceName?.Trim(),
+                                               item.serviceName?.Trim(),
+                                               StringComparison.OrdinalIgnoreCase));
+                            if (match != null)
+                            {
+                                unitPrice = match.amount;
+                                itemSubTotal = match.SubTotal;
+                            }
+                            else if (unitPrice <= 0 && item.quantity > 0 && itemSubTotal > 0)
+                            {
+                                unitPrice = itemSubTotal / item.quantity;
+                            }
+                        }
+
                         items.Add(new ReceiptItem
                         {
                             Description = item.serviceName ?? "Service",
-                            Amount = item.subTotal,
-                            SubText = $"Qty {item.quantity} × ₦{item.amount:N2}"
+                            Amount = itemSubTotal,
+                            SubText = $"Qty {item.quantity} × ₦{unitPrice:N2}"
                         });
                     }
                 }
             }
-
             decimal grandTotal = responses.Sum(r => r.totalAmount);
+            if (grandTotal <= 0)  grandTotal = _viewModel.AllServices? .Where(s => s.IsSelected).Sum(s => s.SubTotal) ?? 0;
             string combinedRef = string.Join(", ", responses.Select(r => r.transactionNo).Where(t => !string.IsNullOrWhiteSpace(t)));
 
             return new ReceiptData
             {
-                StoreName = App.RevenueServiceName ?? "YOBE STATE HOSPITALS MANAGEMENT BOARD",
+                StoreName = App.RevenueServiceName ?? "YOBE STATE HOSPITALS",
                 StorePhone = "Contact: +234-810-046-6363",
                 ReceiptBannerText = "PAYMENT RECEIPT",
                 ReceiptNumber = string.IsNullOrWhiteSpace(combinedRef) ? "N/A" : combinedRef,
@@ -1362,6 +1439,9 @@ namespace YIRSHospital.Views
                 }
 
                 await DisplayAlert("Print Status", "Receipt printed successfully.", "OK");
+
+                // ── Hide button so it cannot be tapped again ──────────────────
+                Device.BeginInvokeOnMainThread(() => ResultPrintButton.IsVisible = false);
             }
             catch (PrinterException pex)
             {
@@ -1514,7 +1594,12 @@ namespace YIRSHospital.Views
                         pin = PaymentPinEntry?.Text ?? "",
                         hospitalNo = PatientNo?.Text ?? _registeredPatientId ?? "",
                         PaymentMethod = "Card",
-                        services = deptGroup.Select(s => new PaymentServiceItem { serviceName = s.serviceName, quantity = s.Quantity }).ToList()
+                        services = deptGroup.Select(s => new PaymentServiceItem
+                        {
+                            serviceName = s.serviceName,
+                            quantity = s.Quantity,
+                            Amount = s.amount // <- include amount here as well
+                        }).ToList()
                     };
                     var res = await ProcessPaymentRequest(req);
                     if (res?.respondCode == "00") allResponses.Add(res);
@@ -1524,7 +1609,8 @@ namespace YIRSHospital.Views
             }
 
             Device.BeginInvokeOnMainThread(() => CardPaymentOverlay.IsVisible = false);
-            FinalisePaymentResult(allResponses, errors, "Card");
+            var fallbackForCard = selected?.Sum(s => s.SubTotal) ?? 0;
+            FinalisePaymentResult(allResponses, errors, "Card", fallbackForCard);
         }
 
         private void OnCancelCardPayment(object sender, EventArgs e)
