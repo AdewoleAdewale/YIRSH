@@ -13,6 +13,8 @@ namespace YIRSHospital.Services
         public string Category { get; set; }
         public string CollectionPoint { get; set; }
         public DateTime ExpiresAt { get; set; }
+        public string HospitalCode { get; set; }
+        public string HospitalDisplayName { get; set; }
 
         [JsonIgnore]
         public bool IsValid => !string.IsNullOrWhiteSpace(Email)
@@ -27,8 +29,14 @@ namespace YIRSHospital.Services
 
         // ── Save ──────────────────────────────────────────────────────────────
 
-        public static async Task SaveAsync(string fullName, string email,
-            string category, string collectionPoint)
+        public static Task SaveAsync(string fullName, string email, string category, string collectionPoint)
+        {
+            return SaveAsync(fullName, email, category, collectionPoint, null, null);
+        }
+
+ 
+        public static async Task SaveAsync(string fullName, string email, string category,
+                string collectionPoint, string hospitalCode, string hospitalDisplayName)
         {
             try
             {

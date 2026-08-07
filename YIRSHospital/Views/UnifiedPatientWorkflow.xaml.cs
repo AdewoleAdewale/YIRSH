@@ -99,7 +99,9 @@ namespace YIRSHospital.Views
             protected virtual void OnPropertyChanged([CallerMemberName] string p = null)
                 => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(p));
         }
-  
+
+
+
         public class PaymentRequest
         {
             public string revName { get; set; }
@@ -113,14 +115,9 @@ namespace YIRSHospital.Views
 
         public class PaymentServiceItem
         {
-            [JsonProperty("ServiceName")]
             public string serviceName { get; set; }
-
-            [JsonProperty("Quantity")]
             public int quantity { get; set; }
-
-            [JsonProperty("Amount")]
-            public decimal Amount { get; set; }
+            public decimal amount { get; set; }   // ← new
         }
         public class PaymentResponse
         {
@@ -498,36 +495,42 @@ namespace YIRSHospital.Views
 
         private async Task<PatientRegistrationResponseObject> SubmitRegistration(PatientRegistrationObject data)
         {
-            EnsureHttpClientInitialized();
             const int maxRetry = 3;
             const int delayMs = 2000;
+
+            var registration = new PatientRegistration
+            {
+                FullName = data.FullName,
+                PatentNo = data.PatentNo,
+                AgentName = LoginPage.Name,
+                PhoneNumber = data.PhoneNumber,
+                Address = data.Address,
+                Email = data.Email,
+                Gender = data.Gender,
+                Age = data.Age,
+                MaritalStatus = data.MaritalStatus,
+                GuarantorName = data.GuarantorName,
+                Relationship = data.Relationship,
+                QuarantorPhone = data.QuarantorPhone,
+                HospitalCode = HospitalContext.Code
+            };
 
             for (int attempt = 1; attempt <= maxRetry; attempt++)
             {
                 try
                 {
-                    var formData = new List<KeyValuePair<string, string>>
+                    var result = await HospitalApiService.RegisterPatientAsync(registration);
+
+                    if (!result.Success)
+                        throw new Exception(result.ErrorMessage ?? "Registration failed.");
+
+                    return new PatientRegistrationResponseObject
                     {
-
-                        new KeyValuePair<string, string>("FullName",       data.FullName ?? ""),
-                        new KeyValuePair<string, string>("PatentNo",       data.PatentNo ?? ""),
-                        new KeyValuePair<string, string>("PhoneNumber",    data.PhoneNumber ?? ""),
-                        new KeyValuePair<string, string>("Address",        data.Address ?? ""),
-                        new KeyValuePair<string, string>("Gender",         data.Gender ?? ""),
-                        new KeyValuePair<string, string>("Age",            data.Age ?? ""),
-                        new KeyValuePair<string, string>("MaritalStatus",  data.MaritalStatus ?? ""),
-                        new KeyValuePair<string, string>("AgentName",      LoginPage.Name ?? "")
-
+                        // map to whatever your existing object exposes
+                        Message = result.Data.message,
+                        Code = result.Data.code,
+                        PatientId = result.Data.patientId
                     };
-
-                    var content = new FormUrlEncodedContent(formData);
-                    var response = await _httpClient.PostAsync($"{BASE_URL}/RegisterPatient", content);
-
-                    if (response.IsSuccessStatusCode)
-                    {
-                        var json = await response.Content.ReadAsStringAsync();
-                        return JsonConvert.DeserializeObject<PatientRegistrationResponseObject>(json);
-                    }
                 }
                 catch (Exception ex) when (attempt < maxRetry)
                 {
@@ -535,9 +538,9 @@ namespace YIRSHospital.Views
                     await Task.Delay(delayMs);
                 }
             }
+
             throw new Exception("Registration failed after multiple attempts.");
         }
-
         private void ShowRegistrationSuccessPopup(PatientRegistrationResponseObject response)
         {
             Device.BeginInvokeOnMainThread(() =>
@@ -757,12 +760,15 @@ namespace YIRSHospital.Views
                 _viewModel.IsLoading = true;
                 _viewModel.LoadingMessage = "Loading services…";
 
-                var deptResponse = await _httpClient.GetAsync($"{BASE_URL}/ListDepartment");
-                if (!deptResponse.IsSuccessStatusCode)
-                    throw new HttpRequestException($"Server returned {deptResponse.StatusCode}");
+                var deptResult = await HospitalApiService.GetDepartmentsAsync(HospitalContext.Code);
 
-                var deptJson = await deptResponse.Content.ReadAsStringAsync();
-                var departments = JsonConvert.DeserializeObject<List<Department>>(deptJson);
+                if (!deptResult.Success || deptResult.Data == null || deptResult.Data.Count == 0)
+                    throw new InvalidOperationException(
+                        deptResult.ErrorMessage ?? $"No departments found for {HospitalContext.Label}.");
+
+                var departments = deptResult.Data
+                    .Select(d => new Department { name = d.name, id = d.id })
+                    .ToList();
 
                 if (departments == null || !departments.Any())
                     throw new InvalidOperationException("No departments found");
@@ -780,26 +786,30 @@ namespace YIRSHospital.Views
                 {
                     try
                     {
-                        string url = $"{BASE_URL}/ListRevServices?RevHead={Uri.EscapeDataString(REVENUE_NAME)}&Dept={Uri.EscapeDataString(dept.name)}";
-                        var res = await _httpClient.GetAsync(url);
-                        if (res.IsSuccessStatusCode)
+                        var revHead = await HospitalApiService.ResolveRevenueHeadAsync(HospitalContext.Code, HospitalContext.DisplayName, LoginPage.CollectionPoint, departments.First().name);
+
+                        foreach (var innerDept in departments)
                         {
-                            var json = await res.Content.ReadAsStringAsync();
-                            var services = JsonConvert.DeserializeObject<List<ServiceItem>>(json);
-                            if (services?.Any() == true)
+                            var catalogue = await HospitalApiService.GetDepartmentServicesAsync(revHead, innerDept.name);
+
+                            if (!catalogue.Success || catalogue.Data == null) continue;
+
+                            foreach (var item in catalogue.Data)
                             {
-                                foreach (var s in services)
+                                var service = new ServiceItem
                                 {
-                                    s.DepartmentName = dept.name;
-                                    s.Quantity = 1;
-                                    s.IsSelected = false;
-                                    s.MarkInitialAmount();          // ← ADD THIS LINE
-                                    s.PropertyChanged += OnServiceItemPropertyChanged;
-                                    allServices.Add(s);
-                                }
+                                    serviceName = item.serviceName,
+                                    amount = item.amount,
+                                    DepartmentName = innerDept.name,
+                                    Quantity = 1,
+                                    IsSelected = false
+                                };
+                                service.PropertyChanged += OnServiceItemPropertyChanged;
+                                allServices.Add(service);
                             }
+
+                            await Task.Delay(100);
                         }
-                        await Task.Delay(80);
                     }
                     catch (Exception ex)
                     {
@@ -816,7 +826,7 @@ namespace YIRSHospital.Views
                         _viewModel.AllServices.Add(s);
                         _viewModel.DisplayedServices.Add(s);
                     }
-                    _viewModel.StatusText = $"{departments.Count} departments, {allServices.Count} services";
+                    _viewModel.StatusText = $"{HospitalContext.Label} — {departments.Count} departments, {allServices.Count} services";
                     _viewModel.UpdateCalculations();
                 });
             }
@@ -1076,7 +1086,7 @@ namespace YIRSHospital.Views
                             {
                                 serviceName = s.serviceName,
                                 quantity = s.Quantity,
-                                Amount = s.amount, // <- use numeric amount instead of parsing formatted string
+                                amount = s.amount, // <- use numeric amount instead of parsing formatted string
                             }).ToList()
                         };
 
@@ -1111,27 +1121,48 @@ namespace YIRSHospital.Views
 
         private async Task<PaymentResponse> ProcessPaymentRequest(PaymentRequest request)
         {
-            EnsureHttpClientInitialized();
             if (request == null) throw new ArgumentNullException(nameof(request));
 
-            string url = $"{BASE_URL}/ProcessPayment";
-            var json = JsonConvert.SerializeObject(request);
-            var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+            var hospitalRequest = new HospitalPaymentRequest
+            {
+                hospitalCode = HospitalContext.Code,
+                department = request.department,
+                HospitalNo = request.hospitalNo,
+                email = request.email,
+                pin = request.pin,
+                paymentMethod = request.PaymentMethod,
+                Services = request.services.Select(s => new HospitalPaymentService
+                {
+                    ServiceName = s.serviceName,
+                    Quantity = s.quantity,
+                    Amount = s.amount        // ← see 6c
+                }).ToList()
+            };
 
-            Debug.WriteLine($"[Payment Request] {json}");
+            var result = await HospitalApiService.MakePaymentAsync(hospitalRequest);
 
-            var response = await _httpClient.PostAsync(url, content);
-            var responseJson = await response.Content.ReadAsStringAsync();
+            if (!result.Success)
+                throw new InvalidOperationException(result.ErrorMessage ?? "Payment failed.");
 
-            Debug.WriteLine($"[Payment Response] {responseJson}");
-
-            if (!response.IsSuccessStatusCode)
-                throw new HttpRequestException($"Payment failed: {response.StatusCode}");
-
-            var result = JsonConvert.DeserializeObject<PaymentResponse>(responseJson);
-            return result ?? throw new InvalidOperationException("Failed to parse payment response");
+            var r = result.Data;
+            return new PaymentResponse
+            {
+                respondCode = r.respondCode,
+                transactionNo = r.transactionNo,
+                message = r.message,
+                status = r.status,
+                payerId = r.payerId,
+                totalAmount = r.totalAmount,
+                PaymentMethod = request.PaymentMethod,
+                breakdown = r.breakdown?.Select(b => new BreakdownItem
+                {
+                    serviceName = b.serviceName,
+                    amount = b.amount,
+                    quantity = b.quantity,
+                    subTotal = b.subTotal
+                }).ToList()
+            };
         }
-
         // ─────────────────────────────────────────────────────────
         //  FINALISE & SHOW RESULT
         // ─────────────────────────────────────────────────────────
@@ -1598,7 +1629,7 @@ namespace YIRSHospital.Views
                         {
                             serviceName = s.serviceName,
                             quantity = s.Quantity,
-                            Amount = s.amount // <- include amount here as well
+                            amount = s.amount // <- include amount here as well
                         }).ToList()
                     };
                     var res = await ProcessPaymentRequest(req);
@@ -1708,6 +1739,10 @@ namespace YIRSHospital.Views
         public string Gender { get; set; }
         public string Age { get; set; }
         public string MaritalStatus { get; set; }
+        public string Email { get; internal set; }
+        public string GuarantorName { get; internal set; }
+        public string Relationship { get; internal set; }
+        public string QuarantorPhone { get; internal set; }
     }
 
     public class PatientRegistrationResponseObject

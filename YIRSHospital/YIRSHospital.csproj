@@ -64,4 +64,10 @@
       <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
     </EmbeddedResource>
   </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Services\NewFolder\" />
+    <Folder Include="Views\DAMAGUM\" />
+    <Folder Include="Views\POTISKUM\" />
+  </ItemGroup>
 </Project>

@@ -2,7 +2,9 @@
 using Newtonsoft.Json;
 using Plugin.Connectivity;
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -36,6 +38,8 @@ namespace YIRSHospital.Views
         private int _loginAttempts = 0;
         private DateTime _lastLoginAttempt = DateTime.MinValue;
         private const int LOCKOUT_MINUTES = 1;
+        private List<HospitalInfo> _hospitals = new List<HospitalInfo>();
+        private bool _hospitalsLoaded;
         #endregion
 
         #region Properties
@@ -106,8 +110,8 @@ namespace YIRSHospital.Views
                 LoginActivityIndicator.IsRunning = false;
                 EmailValidationLabel.IsVisible = false;
                 PasswordValidationLabel.IsVisible = false;
-
-                // Set UI to visible (no animations)
+                HospitalSection.Opacity = 1;
+                HospitalValidationLabel.IsVisible = false;
                 HeaderSection.Opacity = 1;
                 FormCard.Opacity = 1;
                 EmailSection.Opacity = 1;
@@ -266,7 +270,86 @@ namespace YIRSHospital.Views
                 };
             }
         }
+        protected override async void OnAppearing()
+        {
+            base.OnAppearing();
+            if (!_hospitalsLoaded) await LoadHospitalsAsync();
+        }
 
+        private async Task LoadHospitalsAsync()
+        {
+            try
+            {
+                HospitalPicker.Title = "Loading hospitals…";
+                HospitalPicker.IsEnabled = false;
+
+                var result = await HospitalApiService.GetHospitalListAsync();
+
+                if (!result.Success || result.Data == null || result.Data.Count == 0)
+                {
+                    HospitalPicker.Title = "Tap to retry";
+                    HospitalPicker.IsEnabled = true;
+                    ShowValidationError(HospitalValidationLabel,
+                        result.ErrorMessage ?? "Could not load hospitals. Pull down to retry.");
+                    return;
+                }
+
+                _hospitals = result.Data;
+                _hospitalsLoaded = true;
+
+                Device.BeginInvokeOnMainThread(() =>
+                {
+                    HospitalPicker.ItemsSource = _hospitals;
+                    HospitalPicker.Title = "Select your hospital";
+                    HospitalPicker.IsEnabled = true;
+
+                    // Re-select whatever they used last time
+                    if (HospitalContext.IsSelected)
+                    {
+                        var previous = _hospitals.FirstOrDefault(h =>
+                            string.Equals(h.code, HospitalContext.Code, StringComparison.OrdinalIgnoreCase));
+                        if (previous != null) HospitalPicker.SelectedItem = previous;
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("LoadHospitalsAsync: " + ex.Message);
+                HospitalPicker.Title = "Tap to retry";
+                HospitalPicker.IsEnabled = true;
+            }
+        }
+
+        private async void OnHospitalSelected(object sender, EventArgs e)
+        {
+            var selected = HospitalPicker.SelectedItem as HospitalInfo;
+            if (selected == null) return;
+
+            HideValidationError(HospitalValidationLabel);
+
+            // API 2 — confirm the code is actually live before we let them log in
+            var codes = await HospitalApiService.GetHospitalCodeListAsync();
+
+            if (!codes.Success || codes.Data == null)
+            {
+                ShowValidationError(HospitalValidationLabel,
+                    "Could not verify hospital. Check your connection.");
+                return;
+            }
+
+            var confirmed = codes.Data.FirstOrDefault(c =>
+                string.Equals(c, selected.code, StringComparison.OrdinalIgnoreCase));
+
+            if (confirmed == null)
+            {
+                ShowValidationError(HospitalValidationLabel,
+                    selected.displayName + " is not currently available.");
+                return;
+            }
+
+            // Store the *verified* code from API 2, not the one from API 1
+            await HospitalContext.SelectAsync(confirmed, selected.displayName);
+        }
         private async void HandleSuccessfulLogin(LoginResult result)
         {
             var agent = result.LoginResponse.agent;
@@ -281,10 +364,22 @@ namespace YIRSHospital.Views
             Message = result.LoginResponse.message;
 
 
-            var successMessage = $"Welcome back, {agent.name}!";
+            var successMessage = $"Welcome back, {agent.name} — {HospitalContext.Label}";
             UserDialogs.Instance.Toast(successMessage, TimeSpan.FromSeconds(3));
 
-            await SessionService.SaveAsync(agent.name, agent.email, agent.category, agent.collectionPoint);
+            if (!string.IsNullOrWhiteSpace(agent.collectionPoint)
+                && !HospitalContext.IsDefaultHospital
+                && agent.collectionPoint.IndexOf(HospitalContext.Code, StringComparison.OrdinalIgnoreCase) < 0
+                && HospitalContext.DisplayName?.IndexOf(agent.collectionPoint, StringComparison.OrdinalIgnoreCase) < 0)
+            {
+                var proceed = await DisplayAlert("Check hospital",
+                    $"Your account is registered to {agent.collectionPoint}, but you selected {HospitalContext.Label}. Continue?",
+                    "Continue", "Change hospital");
+
+                if (!proceed) { HospitalContext.Clear(); HospitalPicker.SelectedItem = null; return; }
+            }
+
+            await SessionService.SaveAsync(agent.name, agent.email, agent.category, agent.collectionPoint,HospitalContext.Code, HospitalContext.DisplayName);
 
             NavigateBasedOnCategory(agent.category);
         }
@@ -503,6 +598,16 @@ namespace YIRSHospital.Views
         private bool ValidateForm()
         {
             bool isValid = true;
+
+            if (!HospitalContext.IsSelected)
+            {
+                ShowValidationError(HospitalValidationLabel, "Please select a hospital");
+                isValid = false;
+            }
+            else
+            {
+                HideValidationError(HospitalValidationLabel);
+            }
 
             if (!IsValidEmail(EmailEntry.Text))
             {

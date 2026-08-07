@@ -75,7 +75,13 @@ namespace YIRSHospital
                 LoginPage.ValidUserMail = session.Email;
                 LoginPage.category = session.Category;
                 LoginPage.CollectionPoint = session.CollectionPoint;
-
+                if (!string.IsNullOrWhiteSpace(session.HospitalCode))  await HospitalContext.SelectAsync(session.HospitalCode, session.HospitalDisplayName);
+                else await HospitalContext.RestoreAsync();
+                if (!HospitalContext.IsSelected)
+                {
+                    Debug.WriteLine("[App] Session has no hospital — showing login.");
+                    return;
+                }
                 NavigateToDashboard();
             }
             catch (Exception ex)

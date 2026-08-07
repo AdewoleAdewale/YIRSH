@@ -765,7 +765,7 @@ namespace YIRSHospital.Views
             try
             {
                 base.OnAppearing();
-
+                _ = ConfirmHospitalAsync();
                 if (_isInitialized)
                 {
                     UpdateConnectivityStatus();
@@ -830,6 +830,29 @@ namespace YIRSHospital.Views
         private void TapGestureRecognizer_Tapped_2(object sender, EventArgs e)
         {
             Navigation.PushAsync(new Views.UnifiedPatientWorkflow());
+        }
+
+        private async Task ConfirmHospitalAsync()
+        {
+            if (!HospitalContext.IsSelected) return;
+
+            var info = await HospitalApiService.GetHospitalInfoAsync(HospitalContext.Code);
+
+            if (info.Success && info.Data != null)
+            {
+                await HospitalContext.SelectAsync(info.Data.code, info.Data.displayName);
+                Device.BeginInvokeOnMainThread(() => collectionP.Text = HospitalContext.Label);
+            }
+            else
+            {
+                // Stale or withdrawn hospital — don't let them transact against it
+                Device.BeginInvokeOnMainThread(async () =>
+                {
+                    await DisplayAlert("Hospital unavailable",
+                        info.ErrorMessage ?? "Could not confirm your hospital. Please log in again.", "OK");
+                    App.Current.Logout();
+                });
+            }
         }
     }
 }

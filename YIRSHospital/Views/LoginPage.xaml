@@ -138,6 +138,49 @@
 
                     <StackLayout Spacing="24">
 
+                        <StackLayout x:Name="HospitalSection" Spacing="0">
+                            <Label Text="HOSPITAL"
+           Style="{StaticResource InputLabel}"
+           x:Name="HospitalLabel"/>
+
+                            <yummy:PancakeView x:Name="HospitalContainer"
+                       CornerRadius="16"
+                       HeightRequest="60"
+                       BorderThickness="2"
+                       BackgroundColor="White">
+
+                                <Grid ColumnDefinitions="60,*" VerticalOptions="Center">
+                                    <Label Grid.Column="0"
+                   Text="+" TextColor="Black"
+                   FontSize="24"
+                   HorizontalOptions="Center"
+                   VerticalOptions="Center"
+                   Opacity="0.8"/>
+
+                                    <Picker Grid.Column="1"
+                    x:Name="HospitalPicker"
+                    Title="Select your hospital"
+                    TitleColor="Gray"
+                    TextColor="Black"
+                    FontSize="13"
+                    FontFamily="Inter"
+                    BackgroundColor="White"
+                    HeightRequest="56"
+                    VerticalOptions="Center"
+                    Margin="0,0,20,0"
+                    ItemDisplayBinding="{Binding displayName}"
+                    SelectedIndexChanged="OnHospitalSelected"
+                    AutomationProperties.Name="Hospital selection"/>
+                                </Grid>
+                            </yummy:PancakeView>
+
+                            <Label x:Name="HospitalValidationLabel"
+           FontFamily="Inter"
+           FontSize="12"
+           TextColor="White"
+           IsVisible="False"
+           Margin="4,8,0,0"/>
+                        </StackLayout>
                         <!-- Email Field with Floating Label -->
                         <StackLayout x:Name="EmailSection" Spacing="0">
                             <Label Text="EMAIL ADDRESS" 

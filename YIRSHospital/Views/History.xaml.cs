@@ -1,14 +1,13 @@
-﻿using Newtonsoft.Json;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
-using System.Net;
-using System.Net.Http;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Threading.Tasks;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
+using YIRSHospital.Services;
 
 namespace YIRSHospital.Views
 {
@@ -16,41 +15,64 @@ namespace YIRSHospital.Views
     public partial class History : ContentPage
     {
         #region Data Models
-        public class TransactionApiResponse
-        {
-            public string message { get; set; }
-            public string respondCode { get; set; }
-            public string agent { get; set; }
-            public int totalTransactionCount { get; set; }
-            public decimal totalAmount { get; set; }
-            public List<Transaction> transactions { get; set; }
-        }
 
+        /// <summary>
+        /// View model for one row of AllHospitalPaymentHistory.
+        ///
+        /// The endpoint returns only five fields (department, serviceName,
+        /// transactionId, amount, dateRecorded). The property names below are kept
+        /// as they were so History.xaml binds without edits — but three of them are
+        /// now fed from a different source, which is called out on each one.
+        /// </summary>
         public class Transaction
         {
             public string datelIst { get; set; }
             public string transactionId { get; set; }
+
+            /// <summary>API: serviceName.</summary>
             public string serviceTypeName { get; set; }
 
+            /// <summary>Not returned by this endpoint — see notes.</summary>
             public string HospitalNo { get; set; }
+
             public decimal amount { get; set; }
+
+            /// <summary>Not returned by this endpoint — see notes.</summary>
             public string payer { get; set; }
+
+            /// <summary>The agent who ran the search, not the one who took payment.</summary>
             public string agentName { get; set; }
+
+            /// <summary>Now carries the hospital name, not a revenue head.</summary>
             public string revenueHead { get; set; }
+
+            /// <summary>Now carries the department.</summary>
             public string remitaServiceName { get; set; }
+
+            /// <summary>
+            /// Synthesised. This endpoint only records completed payments, so every
+            /// row is a success; there is no status field to read.
+            /// </summary>
             public string status { get; set; }
+
+            [Newtonsoft.Json.JsonIgnore]
+            public DateTime? RecordedAt { get; set; }
 
             public string DisplayDate
             {
                 get
                 {
-                    if (DateTime.TryParse(datelIst, out DateTime date))
-                        return date.ToString("MMM dd, yyyy h:mm tt");
-                    return datelIst ?? "N/A";
+                    if (RecordedAt.HasValue)
+                        return RecordedAt.Value.ToString("MMM dd, yyyy h:mm tt");
+
+                    return string.IsNullOrWhiteSpace(datelIst) ? "N/A" : datelIst;
                 }
             }
 
-            public string PayerDisplay => string.IsNullOrWhiteSpace(payer) ? "N/A" : payer;
+            public string PayerDisplay
+            {
+                get { return string.IsNullOrWhiteSpace(payer) ? "N/A" : payer; }
+            }
 
             public Color StatusColor
             {
@@ -78,6 +100,27 @@ namespace YIRSHospital.Views
                     return "❓";
                 }
             }
+
+            /// <summary>Maps one API row onto the shape the ListView expects.</summary>
+            public static Transaction FromApi(HospitalPaymentHistoryItem item, string agentName)
+            {
+                var recordedAt = item.RecordedAt;
+
+                return new Transaction
+                {
+                    transactionId = string.IsNullOrWhiteSpace(item.transactionId) ? "N/A" : item.transactionId,
+                    serviceTypeName = string.IsNullOrWhiteSpace(item.serviceName) ? "Unknown Service" : item.serviceName,
+                    remitaServiceName = string.IsNullOrWhiteSpace(item.department) ? "N/A" : item.department,
+                    revenueHead = HospitalContext.Label,
+                    agentName = string.IsNullOrWhiteSpace(agentName) ? "N/A" : agentName,
+                    amount = item.AmountValue,
+                    RecordedAt = recordedAt,
+                    datelIst = recordedAt.HasValue ? recordedAt.Value.ToString("o") : item.dateRecorded,
+                    HospitalNo = "—",
+                    payer = null,
+                    status = "Successful"
+                };
+            }
         }
 
         public class TransactionDataContext : INotifyPropertyChanged
@@ -86,7 +129,7 @@ namespace YIRSHospital.Views
 
             public List<Transaction> Transactions
             {
-                get => _transactions;
+                get { return _transactions; }
                 set
                 {
                     _transactions = value ?? new List<Transaction>();
@@ -102,12 +145,36 @@ namespace YIRSHospital.Views
 
             public string AgentName { get; set; }
             public string RevenueHead { get; set; }
-            public decimal Size => Math.Max(Transactions.Count * 200, 300);
-            public int TransactionCount => Transactions.Count;
-            public decimal TotalAmount => Transactions.Sum(x => x.amount);
-            public int ApprovedCount => Transactions.Count(t => t.status?.Contains("Approved") == true || t.status?.Contains("Successful") == true);
-            public int RefundedCount => Transactions.Count(t => t.status?.Contains("Refunded") == true);
-            public decimal ApprovedAmount => Transactions.Where(t => t.status?.Contains("Approved") == true || t.status?.Contains("Successful") == true).Sum(t => t.amount);
+            public string HospitalName { get; set; }
+
+            public decimal Size { get { return Math.Max(Transactions.Count * 200, 300); } }
+            public int TransactionCount { get { return Transactions.Count; } }
+            public decimal TotalAmount { get { return Transactions.Sum(x => x.amount); } }
+
+            public int ApprovedCount
+            {
+                get
+                {
+                    return Transactions.Count(t => t.status?.Contains("Approved") == true
+                                                || t.status?.Contains("Successful") == true);
+                }
+            }
+
+            public int RefundedCount
+            {
+                get { return Transactions.Count(t => t.status?.Contains("Refunded") == true); }
+            }
+
+            public decimal ApprovedAmount
+            {
+                get
+                {
+                    return Transactions
+                        .Where(t => t.status?.Contains("Approved") == true
+                                 || t.status?.Contains("Successful") == true)
+                        .Sum(t => t.amount);
+                }
+            }
 
             public event PropertyChangedEventHandler PropertyChanged;
             protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
@@ -118,10 +185,8 @@ namespace YIRSHospital.Views
         #endregion
 
         #region Private Fields
-        private static readonly HttpClient _httpClient = CreateHttpClient();
-        private bool _isLoading = false;
-        private const int REQUEST_TIMEOUT_SECONDS = 30;
-        private const string API_BASE_URL = "https://yobe.osoftpay.net/api/Agents/GetAgentTransactions";
+        private bool _isLoading;
+        private CancellationTokenSource _cts;
         #endregion
 
         #region Constructor
@@ -144,46 +209,13 @@ namespace YIRSHospital.Views
         {
             endDatePicker.Date = DateTime.Now;
             startDatePicker.Date = DateTime.Now.AddDays(-30);
-            BindingContext = new TransactionDataContext();
+
+            BindingContext = new TransactionDataContext
+            {
+                HospitalName = HospitalContext.Label
+            };
+
             HideAllSections();
-        }
-
-        private static HttpClient CreateHttpClient()
-        {
-            try
-            {
-                // CRITICAL FIX: Proper SSL/TLS configuration for Xamarin
-                var handler = new HttpClientHandler
-                {
-                    AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
-                    // More secure approach - only bypass if necessary
-                    ServerCertificateCustomValidationCallback = (message, cert, chain, errors) =>
-                    {
-                        // For production, implement proper certificate validation
-                        // For now, log the error and allow connection
-                        if (errors != System.Net.Security.SslPolicyErrors.None)
-                        {
-                            System.Diagnostics.Debug.WriteLine($"SSL Certificate Warning: {errors}");
-                        }
-                        return true; // Only for development/testing
-                    }
-                };
-
-                // Configure TLS settings BEFORE creating HttpClient
-                ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11;
-                ServicePointManager.CheckCertificateRevocationList = false;
-                ServicePointManager.DefaultConnectionLimit = 10;
-
-                return new HttpClient(handler)
-                {
-                    Timeout = TimeSpan.FromSeconds(REQUEST_TIMEOUT_SECONDS)
-                };
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"HttpClient creation error: {ex.Message}");
-                return new HttpClient { Timeout = TimeSpan.FromSeconds(REQUEST_TIMEOUT_SECONDS) };
-            }
         }
         #endregion
 
@@ -206,25 +238,32 @@ namespace YIRSHospital.Views
 
                 ShowLoadingState();
 
-                var url = BuildApiUrl();
-                System.Diagnostics.Debug.WriteLine($"API Request: {url}");
+                _cts?.Cancel();
+                _cts?.Dispose();
+                _cts = new CancellationTokenSource();
 
-                var apiResponse = await FetchTransactionsAsync(url);
-                ProcessTransactionResults(apiResponse);
+                var result = await HospitalApiService.GetPaymentHistoryAsync(
+                    LoginPage.ValidUserMail,
+                    startDatePicker.Date,
+                    endDatePicker.Date,
+                    HospitalContext.Code,
+                    _cts.Token);
+
+                if (!result.Success)
+                {
+                    ShowErrorState(result.ErrorMessage ?? "Could not load payment history.");
+                    return;
+                }
+
+                ProcessTransactionResults(result.Data);
             }
-            catch (HttpRequestException ex)
+            catch (OperationCanceledException)
             {
-                System.Diagnostics.Debug.WriteLine($"HTTP Error: {ex.Message}");
-                System.Diagnostics.Debug.WriteLine($"Inner Exception: {ex.InnerException?.Message}");
-                ShowErrorState($"Network error: {ex.InnerException?.Message ?? ex.Message}");
-            }
-            catch (TaskCanceledException)
-            {
-                ShowErrorState("Request timed out. Please try again.");
+                // A newer search superseded this one — nothing to report.
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error: {ex.Message}\n{ex.StackTrace}");
+                System.Diagnostics.Debug.WriteLine($"[History] {ex}");
                 ShowErrorState("An unexpected error occurred. Please try again.");
             }
             finally
@@ -236,6 +275,13 @@ namespace YIRSHospital.Views
 
         private bool ValidateInputs()
         {
+            if (!HospitalContext.IsSelected)
+            {
+                Device.BeginInvokeOnMainThread(async () =>
+                    await DisplayAlert("Error", "No hospital selected. Please log in again.", "OK"));
+                return false;
+            }
+
             if (startDatePicker.Date > endDatePicker.Date)
             {
                 Device.BeginInvokeOnMainThread(async () =>
@@ -260,60 +306,22 @@ namespace YIRSHospital.Views
             return true;
         }
 
-        private string BuildApiUrl()
+        private void ProcessTransactionResults(List<HospitalPaymentHistoryItem> items)
         {
-            string fromDate = startDatePicker.Date.ToString("M/d/yyyy");
-            string toDate = endDatePicker.Date.ToString("M/d/yyyy");
-            return $"{API_BASE_URL}?agentEmail={Uri.EscapeDataString(LoginPage.ValidUserMail)}&fromDate={Uri.EscapeDataString(fromDate)}&toDate={Uri.EscapeDataString(toDate)}";
-        }
+            var source = items ?? new List<HospitalPaymentHistoryItem>();
 
-        private async Task<TransactionApiResponse> FetchTransactionsAsync(string url)
-        {
-            var response = await _httpClient.GetAsync(url);
-            var json = await response.Content.ReadAsStringAsync();
-
-            System.Diagnostics.Debug.WriteLine($"Response Status: {response.StatusCode}");
-            System.Diagnostics.Debug.WriteLine($"Response: {json.Substring(0, Math.Min(500, json.Length))}");
-
-            if (!response.IsSuccessStatusCode)
-            {
-                throw new HttpRequestException($"Server error: {response.StatusCode}");
-            }
-
-            var apiResponse = JsonConvert.DeserializeObject<TransactionApiResponse>(json);
-
-            if (apiResponse?.respondCode != "00")
-            {
-                throw new InvalidOperationException($"API Error: {apiResponse?.message ?? "Unknown error"}");
-            }
-
-            apiResponse.transactions = apiResponse.transactions ?? new List<Transaction>();
-            return apiResponse;
-        }
-
-        private void ProcessTransactionResults(TransactionApiResponse apiResponse)
-        {
-            var transactions = apiResponse.transactions
-                .OrderByDescending(t => t.datelIst)
+            var transactions = source
+                .Select(i => Transaction.FromApi(i, LoginPage.Name))
+                .OrderByDescending(t => t.RecordedAt ?? DateTime.MinValue)
+                .ThenByDescending(t => t.transactionId)
                 .ToList();
-
-            // Clean data
-            foreach (var t in transactions)
-            {
-                if (t.transactionId == null) t.transactionId = "N/A";
-                if (t.serviceTypeName == null) t.serviceTypeName = "Unknown Service";
-                if (t.agentName == null) t.agentName = "Unknown Agent";
-                if (t.revenueHead == null) t.revenueHead = "N/A";
-                if (t.remitaServiceName == null) t.remitaServiceName = "N/A";
-                if (t.status == null) t.status = "Unknown";
-                if (t.datelIst == null) t.datelIst = DateTime.Now.ToString("o");
-            }
 
             var dataContext = new TransactionDataContext
             {
                 Transactions = transactions,
-                AgentName = apiResponse.agent ?? "Unknown Agent",
-                RevenueHead = transactions.FirstOrDefault()?.revenueHead ?? "N/A"
+                AgentName = LoginPage.Name ?? "Unknown Agent",
+                HospitalName = HospitalContext.Label,
+                RevenueHead = HospitalContext.Label
             };
 
             Device.BeginInvokeOnMainThread(() =>
@@ -321,13 +329,9 @@ namespace YIRSHospital.Views
                 BindingContext = dataContext;
 
                 if (transactions.Count > 0)
-                {
                     ShowResultsState(dataContext);
-                }
                 else
-                {
                     ShowEmptyState();
-                }
             });
         }
         #endregion
@@ -351,10 +355,11 @@ namespace YIRSHospital.Views
         {
             HideAllSections();
             resultsSection.IsVisible = true;
-            summaryLabel.Text = $"{dataContext.TransactionCount} transaction{(dataContext.TransactionCount != 1 ? "s" : "")} • " +
-                               $"Approved: {dataContext.ApprovedCount} (₦{dataContext.ApprovedAmount:N2}) • " +
-                               $"Refunded: {dataContext.RefundedCount} • " +
-                               $"Total: ₦{dataContext.TotalAmount:N2}";
+
+            summaryLabel.Text =
+                $"{dataContext.HospitalName} • " +
+                $"{dataContext.TransactionCount} transaction{(dataContext.TransactionCount != 1 ? "s" : "")} • " +
+                $"Total: ₦{dataContext.TotalAmount:N2}";
         }
 
         private void HideAllSections()
@@ -366,16 +371,22 @@ namespace YIRSHospital.Views
 
         private void ShowEmptyState()
         {
-            HideAllSections();
-            emptyStateSection.IsVisible = true;
+            Device.BeginInvokeOnMainThread(() =>
+            {
+                HideAllSections();
+                emptyStateSection.IsVisible = true;
+            });
         }
 
         private void ShowErrorState(string errorMessage = null)
         {
-            HideAllSections();
-            errorStateSection.IsVisible = true;
-            if (!string.IsNullOrEmpty(errorMessage))
-                errorMessageLabel.Text = errorMessage;
+            Device.BeginInvokeOnMainThread(() =>
+            {
+                HideAllSections();
+                errorStateSection.IsVisible = true;
+                if (!string.IsNullOrEmpty(errorMessage))
+                    errorMessageLabel.Text = errorMessage;
+            });
         }
         #endregion
 
@@ -383,10 +394,19 @@ namespace YIRSHospital.Views
         protected override void OnDisappearing()
         {
             base.OnDisappearing();
-            _httpClient?.CancelPendingRequests();
+
+            try
+            {
+                _cts?.Cancel();
+                _cts?.Dispose();
+                _cts = null;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[History] Cleanup error: {ex.Message}");
+            }
         }
         #endregion
-
 
         private async void OnBackNavClicked(object sender, EventArgs e)
         {
