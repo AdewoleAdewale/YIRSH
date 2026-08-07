@@ -1433,8 +1433,9 @@ namespace YIRSHospital.Views
 
             return new ReceiptData
             {
-                StoreName = App.RevenueServiceName ?? "YOBE STATE HOSPITALS",
-                StorePhone = "Contact: +234-810-046-6363",
+               
+                StoreName = HospitalBranding.Current.StoreName,
+                StorePhone = HospitalBranding.Current.Phone,
                 ReceiptBannerText = "PAYMENT RECEIPT",
                 ReceiptNumber = string.IsNullOrWhiteSpace(combinedRef) ? "N/A" : combinedRef,
                 AgentName = LoginPage.Name,
@@ -1457,19 +1458,32 @@ namespace YIRSHospital.Views
                 return;
             }
 
+            // A receipt carrying the wrong hospital's seal is worse than no receipt.
+            if (!HospitalContext.IsSelected)
+            {
+                await DisplayAlert("Error",
+                    "No hospital is selected, so the receipt cannot be branded. Please log in again.", "OK");
+                return;
+            }
+
             try
             {
                 _viewModel.IsLoading = true;
                 _viewModel.LoadingMessage = "Printing receipt…";
 
+                var branding = HospitalBranding.Current;
                 var data = BuildCombinedPaymentReceiptData(_currentPaymentResult.Responses);
 
                 using (var printer = new BluetoothPrinterService(use80mm: false))
                 {
-                    await printer.PrintReceiptAsync(data, "Logo.png", "YOBE STATE HOSPITAL");
+                    await printer.PrintReceiptAsync(
+                        data,
+                        branding.ResolveLogoAsset(),
+                        branding.WatermarkText);
                 }
 
-                await DisplayAlert("Print Status", "Receipt printed successfully.", "OK");
+                await DisplayAlert("Print Status",
+                    $"Receipt printed successfully for {branding.StoreName}.", "OK");
 
                 // ── Hide button so it cannot be tapped again ──────────────────
                 Device.BeginInvokeOnMainThread(() => ResultPrintButton.IsVisible = false);
