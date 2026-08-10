@@ -91,4 +91,14 @@ namespace YIRSHospital.Services
             return false;
         }
     }
+
+    public interface IPlatformHttpHandlerProvider
+    {
+        /// <summary>
+        /// Returns a fresh handler configured with the platform's TLS stack plus
+        /// any additional trust anchors the app ships. Never returns null; if the
+        /// platform cannot be configured it must fall back to the stock handler.
+        /// </summary>
+        HttpMessageHandler CreateHandler();
+    }
 }

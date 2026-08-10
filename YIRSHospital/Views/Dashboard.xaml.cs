@@ -24,7 +24,7 @@ namespace YIRSHospital.Views
         private const string PRINTER_LAST_OK_KEY = "printer_last_ok_utc";
         private const int MAX_RETRY_COUNT = 3;
         private const int ACTIVITY_WINDOW_DAYS = 7;
-        private const int ACTIVITY_ROW_LIMIT = 5;
+        private const int ACTIVITY_ROW_LIMIT = 12;
 
         #endregion
 
@@ -35,12 +35,6 @@ namespace YIRSHospital.Views
         private bool _isInitialized;
         private bool _isLoadingData;
         private int _retryCount;
-
-        /// <summary>
-        /// Retained across the fetch so the empty state can say what actually went
-        /// wrong. "Couldn't load activity" for a handshake failure sent an agent to
-        /// check their signal for the better part of a shift.
-        /// </summary>
         private Exception _lastFetchError;
 
         #endregion
@@ -69,11 +63,6 @@ namespace YIRSHospital.Views
             }
         }
 
-        /// <summary>
-        /// Everything that is known the moment the page is constructed: who the
-        /// agent is, which hospital they are transacting for, and what the
-        /// device thinks its network and printer state are.
-        /// </summary>
         private void InitializeIdentity()
         {
             var agent = !string.IsNullOrWhiteSpace(LoginPage.Name) ? LoginPage.Name.Trim() : "Agent";
@@ -87,11 +76,6 @@ namespace YIRSHospital.Views
             UpdatePrinterStatus();
         }
 
-        /// <summary>
-        /// The hospital chip is the single most important piece of state on this
-        /// screen — an agent collecting against the wrong revenue head is only
-        /// discovered at receipt-print time, which is far too late.
-        /// </summary>
         private void ApplyHospitalToViewModel()
         {
             if (HospitalContext.IsSelected)
@@ -145,12 +129,6 @@ namespace YIRSHospital.Views
 
         #region Data
 
-        /// <summary>
-        /// One network call feeds the whole screen. Today's total, the payment
-        /// count, the average ticket and the seven-day total are all derived
-        /// client-side from the same list that renders the activity rows, so
-        /// there is nothing extra to fetch and nothing that can disagree.
-        /// </summary>
         private async Task RefreshAsync(bool pullToRefresh)
         {
             if (_isLoadingData)
@@ -166,27 +144,40 @@ namespace YIRSHospital.Views
             {
                 if (!CheckInternetConnection())
                 {
-                    _vm.SetEmptyState(
-                        "You're offline",
-                        "Reconnect to load today's collections.");
+                    _vm.SetEmptyState("You're offline", "Reconnect to load today's collections.");
                     return;
                 }
 
-                var transactions = await FetchTransactionsAsync();
-
-                if (transactions == null)
+                if (!HospitalContext.IsSelected)
                 {
+                    _vm.SetEmptyState("No hospital selected", "Please log in again to select a hospital.");
+                    return;
+                }
+
+                var endDate = DateTime.Now;
+                var startDate = endDate.Date.AddDays(-ACTIVITY_WINDOW_DAYS);
+
+                // Replicated directly from History.xaml.cs
+                var result = await HospitalApiService.GetPaymentHistoryAsync(
+                    LoginPage.ValidUserMail,
+                    startDate,
+                    endDate,
+                    HospitalContext.Code,
+                    CancellationToken.None);
+
+                if (!result.Success)
+                {
+                    _lastFetchError = new Exception(result.ErrorMessage ?? "Could not load payment history.");
                     ApplyFetchFailureState();
                     return;
                 }
 
-                ApplyTransactions(transactions);
+                ApplyTransactions(result.Data);
             }
             catch (Exception ex)
             {
                 _lastFetchError = ex;
                 System.Diagnostics.Debug.WriteLine("[Dashboard] Refresh failed: " + ex.Message);
-
                 ApplyFetchFailureState();
             }
             finally
@@ -196,11 +187,6 @@ namespace YIRSHospital.Views
             }
         }
 
-        /// <summary>
-        /// A certificate failure is permanent until the app or the server is
-        /// changed, so it gets its own copy: retrying and re-checking the signal
-        /// will never help, and the agent needs to escalate instead.
-        /// </summary>
         private void ApplyFetchFailureState()
         {
             if (ApiClient.IsTlsFailure(_lastFetchError))
@@ -212,136 +198,30 @@ namespace YIRSHospital.Views
                 return;
             }
 
-            _vm.SetEmptyState(
-                "Couldn't load activity",
-                "Pull down to try again.");
+            _vm.SetEmptyState("Couldn't load activity", "Pull down to try again.");
         }
 
-        /// <summary>
-        /// The endpoint renders dates day-first ("10/08/26") but it is not
-        /// documented which way round it wants the search parameters, and the
-        /// two readings are indistinguishable for days 1-12. So: ask month-first
-        /// (what the app has always sent), and if that comes back empty, ask
-        /// again day-first before concluding there is genuinely no activity.
-        /// </summary>
-        private async Task<List<RecentTransaction>> FetchTransactionsAsync()
+        private void ApplyTransactions(List<HospitalPaymentHistoryItem> items)
         {
-            var endDate = DateTime.Now;
-            var startDate = endDate.Date.AddDays(-ACTIVITY_WINDOW_DAYS);
-
-            // 1. Try MM-dd-yyyy (hyphens) as expected by the working API URL
-            var rows = await RequestTransactionsAsync(startDate, endDate, "MM-dd-yyyy");
-
-            if (rows != null && rows.Count > 0) return rows;
-
-            // A handshake failure will fail identically on the second format;
-            // don't spend another 30-second timeout proving it.
-            if (rows == null && ApiClient.IsTlsFailure(_lastFetchError)) return null;
-
-            // 2. Try dd-MM-yyyy fallback
-            var fallback = await RequestTransactionsAsync(startDate, endDate, "dd-MM-yyyy");
-
-            if (fallback != null && fallback.Count > 0) return fallback;
-
-            return rows ?? fallback;
-        }
-
-        private async Task<List<RecentTransaction>> RequestTransactionsAsync(DateTime from, DateTime to, string dateFormat)
-        {
-            try
-            {
-                // Fallback to empty string safely if Email is null
-                var userEmail = string.IsNullOrWhiteSpace(LoginPage.ValidUserMail)
-                    ? string.Empty
-                    : LoginPage.ValidUserMail.Trim();
-
-                var searchFrom = from.ToString(dateFormat, CultureInfo.InvariantCulture);
-                var searchTo = to.ToString(dateFormat, CultureInfo.InvariantCulture);
-
-                var url = "https://yobe.osoftpay.net/api/TaskPayers/gettransaction"
-                        + "?Email=" + Uri.EscapeDataString(userEmail)
-                        + "&SearchFrom=" + Uri.EscapeDataString(searchFrom)
-                        + "&SearchTo=" + Uri.EscapeDataString(searchTo);
-
-                // ApiClient.Shared carries the platform handler with the app's
-                // trust anchors attached. A locally constructed HttpClient gets the
-                // stock handler and fails the handshake against this host.
-                HttpResponseMessage response;
-                try
-                {
-                    response = await ApiClient.Shared.GetAsync(url).ConfigureAwait(false);
-                }
-                catch (Exception netEx)
-                {
-                    _lastFetchError = netEx;
-                    System.Diagnostics.Debug.WriteLine("[Dashboard] Network call failed: " + netEx);
-                    return null;
-                }
-
-                if (response == null) return null;
-
-                var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    System.Diagnostics.Debug.WriteLine(
-                        "[Dashboard] gettransaction " + (int)response.StatusCode + ": " + Snippet(body));
-                    return null;
-                }
-
-                if (string.IsNullOrWhiteSpace(body)) return new List<RecentTransaction>();
-
-                // Handle bare objects or non-array payloads without failing
-                var trimmed = body.TrimStart();
-                if (!trimmed.StartsWith("[", StringComparison.Ordinal))
-                {
-                    System.Diagnostics.Debug.WriteLine("[Dashboard] Non-array payload: " + Snippet(body));
-                    return new List<RecentTransaction>();
-                }
-
-                var settings = new JsonSerializerSettings
-                {
-                    DateParseHandling = DateParseHandling.None
-                };
-
-                var parsed = JsonConvert.DeserializeObject<List<RecentTransaction>>(body, settings);
-                return parsed ?? new List<RecentTransaction>();
-            }
-            catch (Exception ex)
-            {
-                _lastFetchError = ex;
-                System.Diagnostics.Debug.WriteLine("[Dashboard] RequestTransactionsAsync exception: " + ex.Message);
-                return null;
-            }
-        }
-
-        private static string Snippet(string value)
-        {
-            if (string.IsNullOrEmpty(value)) return "(empty)";
-            return value.Length <= 300 ? value : value.Substring(0, 300) + "…";
-        }
-
-        private void ApplyTransactions(List<RecentTransaction> all)
-        {
+            var source = items ?? new List<HospitalPaymentHistoryItem>();
             var today = DateTime.Now.Date;
 
-            // Filter today's transactions accurately
-            var todays = all.Where(t => t.HasValidDate && t.DateRecorded.Date == today).ToList();
+            var all = source
+                .Select(i => RecentTransaction.FromApi(i, LoginPage.Name))
+                .OrderByDescending(t => t.RecordedAt ?? DateTime.MinValue)
+                .ThenByDescending(t => t.transactionId)
+                .ToList();
 
-            var collectedToday = todays.Sum(t => Math.Abs(t.Amount));
-            var weekTotal = all.Sum(t => Math.Abs(t.Amount));
+            var todays = all.Where(t => t.RecordedAt.HasValue && t.RecordedAt.Value.Date == today).ToList();
+
+            var collectedToday = todays.Sum(t => Math.Abs(t.amount));
+            var weekTotal = all.Sum(t => Math.Abs(t.amount));
             var count = todays.Count;
             var average = count > 0 ? collectedToday / count : 0m;
 
-            var latest = todays
-                .OrderByDescending(t => t.DateRecorded)
-                .FirstOrDefault();
+            var latest = todays.FirstOrDefault();
 
-            // Grab latest rows (including items with unparsed dates if any exist)
-            var rows = all
-                .OrderByDescending(t => t.HasValidDate ? t.DateRecorded : DateTime.MinValue)
-                .Take(ACTIVITY_ROW_LIMIT)
-                .ToList();
+            var rows = all.Take(ACTIVITY_ROW_LIMIT).ToList();
 
             Device.BeginInvokeOnMainThread(() =>
             {
@@ -353,7 +233,9 @@ namespace YIRSHospital.Views
                 _vm.CollectedTodaySubline = count == 0
                     ? "No payments recorded yet today"
                     : count + (count == 1 ? " payment" : " payments")
-                      + (latest != null ? " · last at " + latest.DateRecorded.ToString("h:mm tt", CultureInfo.InvariantCulture) : "");
+                      + (latest != null && latest.RecordedAt.HasValue
+                          ? " · last at " + latest.RecordedAt.Value.ToString("h:mm tt", CultureInfo.InvariantCulture)
+                          : "");
 
                 _vm.RecentTransactions.Clear();
                 foreach (var row in rows)
@@ -371,7 +253,6 @@ namespace YIRSHospital.Views
             return "₦" + value.ToString("N0", CultureInfo.InvariantCulture);
         }
 
-        /// <summary>Keeps the three small stat tiles from wrapping on narrow screens.</summary>
         private static string FormatNairaCompact(decimal value)
         {
             if (value >= 1000000m)
@@ -381,6 +262,91 @@ namespace YIRSHospital.Views
                 return "₦" + (value / 1000m).ToString("0.#", CultureInfo.InvariantCulture) + "k";
 
             return "₦" + value.ToString("N0", CultureInfo.InvariantCulture);
+        }
+
+        #endregion
+
+        #region Models
+
+        public class RecentTransaction
+        {
+            public string datelIst { get; set; }
+            public string transactionId { get; set; }
+            public string serviceTypeName { get; set; }
+            public string HospitalNo { get; set; }
+            public decimal amount { get; set; }
+            public string payer { get; set; }
+            public string agentName { get; set; }
+            public string revenueHead { get; set; }
+            public string remitaServiceName { get; set; }
+            public string status { get; set; }
+
+            public DateTime? RecordedAt { get; set; }
+
+            public static RecentTransaction FromApi(HospitalPaymentHistoryItem item, string agentName)
+            {
+                return new RecentTransaction
+                {
+                    transactionId = string.IsNullOrWhiteSpace(item.transactionId) ? "N/A" : item.transactionId,
+                    serviceTypeName = string.IsNullOrWhiteSpace(item.serviceName) ? "Unknown Service" : item.serviceName,
+                    remitaServiceName = string.IsNullOrWhiteSpace(item.department) ? "N/A" : item.department,
+                    revenueHead = HospitalContext.Label,
+                    agentName = string.IsNullOrWhiteSpace(agentName) ? "N/A" : agentName,
+                    amount = item.AmountValue,
+                    RecordedAt = item.RecordedAt,
+                    datelIst = item.RecordedAt.HasValue ? item.RecordedAt.Value.ToString("o", CultureInfo.InvariantCulture) : item.dateRecorded,
+                    HospitalNo = "—",
+                    payer = null,
+                    status = "Paid"
+                };
+            }
+
+            public string PrimaryLine
+            {
+                get
+                {
+                    if (!string.IsNullOrWhiteSpace(payer)) return payer.Trim();
+                    return string.IsNullOrWhiteSpace(serviceTypeName) ? "Payment" : serviceTypeName.Trim();
+                }
+            }
+
+            public string SecondaryLine
+            {
+                get
+                {
+                    var time = RecordedAt.HasValue
+                        ? (RecordedAt.Value.Date == DateTime.Now.Date
+                            ? RecordedAt.Value.ToString("h:mm tt", CultureInfo.InvariantCulture)
+                            : RecordedAt.Value.ToString("MMM d, h:mm tt", CultureInfo.InvariantCulture))
+                        : (datelIst ?? string.Empty).Trim();
+
+                    var dept = string.IsNullOrWhiteSpace(remitaServiceName) || remitaServiceName == "N/A" ? null : remitaServiceName.Trim();
+
+                    if (dept == null) return time;
+                    return time.Length == 0 ? dept : dept + " · " + time;
+                }
+            }
+
+            public string FormattedAmount => "₦" + Math.Abs(amount).ToString("N0", CultureInfo.InvariantCulture);
+
+            public string Initials
+            {
+                get
+                {
+                    var source = PrimaryLine;
+                    var parts = source.Split(new[] { ' ', '.', '-' }, StringSplitOptions.RemoveEmptyEntries);
+
+                    if (parts.Length >= 2)
+                        return (parts[0].Substring(0, 1) + parts[1].Substring(0, 1)).ToUpperInvariant();
+
+                    return (source.Length >= 2 ? source.Substring(0, 2) : source).ToUpperInvariant();
+                }
+            }
+
+            public string StatusDisplay => "Paid";
+            public Color StatusColor => Color.FromHex("#0F6E56");
+            public Color BadgeFill => Color.FromHex("#E1F5EE");
+            public Color BadgeTextColor => Color.FromHex("#0F6E56");
         }
 
         #endregion
@@ -411,11 +377,6 @@ namespace YIRSHospital.Views
             }
         }
 
-        /// <summary>
-        /// The app cannot read the printer's bond state from netstandard, so
-        /// rather than invent a status it reports the last successful test —
-        /// which is the thing an agent actually wants to know before a shift.
-        /// </summary>
         private void UpdatePrinterStatus()
         {
             var stamp = Preferences.Get(PRINTER_LAST_OK_KEY, string.Empty);
@@ -474,10 +435,6 @@ namespace YIRSHospital.Views
             }, "Loading history…");
         }
 
-        /// <summary>
-        /// Switching hospital is a re-authentication, not a silent context swap:
-        /// the agent's credentials are scoped to one hospital's revenue head.
-        /// </summary>
         private async void HospitalChip_Tapped(object sender, EventArgs e)
         {
             try
@@ -689,7 +646,6 @@ namespace YIRSHospital.Views
                 return;
             }
 
-            // Stale or withdrawn hospital — don't let them transact against it.
             Device.BeginInvokeOnMainThread(async () =>
             {
                 await DisplayAlert(
@@ -814,8 +770,6 @@ namespace YIRSHospital.Views
                 _cancellationTokenSource = null;
 
                 Connectivity.ConnectivityChanged -= OnConnectivityChanged;
-
-                // ApiClient.Shared is process-scoped and deliberately not disposed here.
             }
             catch (Exception ex)
             {
@@ -840,7 +794,6 @@ namespace YIRSHospital.Views
                 UpdateConnectivityStatus();
                 UpdatePrinterStatus();
 
-                // Returning from a payment should show the money, not a stale total.
                 _ = ConfirmHospitalAsync();
                 _ = RefreshAsync(pullToRefresh: false);
             }
@@ -875,216 +828,8 @@ namespace YIRSHospital.Views
 
         #endregion
 
-        #region Models
+        #region View Model
 
-        /// <summary>
-        /// Shape returned by /api/TaskPayers/gettransaction. The display members
-        /// are derived so the row template binds directly with no converters.
-        /// </summary>
-        public class RecentTransaction
-        {
-            // ── Wire shape ────────────────────────────────────────────────────
-            // Every field arrives as a JSON string, including the amount. Typing
-            // any of these as DateTime or decimal makes Newtonsoft throw on the
-            // first row and return null for the entire list.
-
-            [JsonProperty("businessName")]
-            public string BusinessName { get; set; }
-
-            [JsonProperty("serviceName")]
-            public string ServiceName { get; set; }
-
-            [JsonProperty("payerId")]
-            public string PayerId { get; set; }
-
-            [JsonProperty("transactionId")]
-            public string TransactionId { get; set; }
-
-            [JsonProperty("amount")]
-            public string AmountRaw { get; set; }
-
-            [JsonProperty("dateRecorded")]
-            public string DateRecordedRaw { get; set; }
-
-            /// <summary>Absent from this endpoint today; tolerated if it appears.</summary>
-            [JsonProperty("status", NullValueHandling = NullValueHandling.Ignore)]
-            public string Status { get; set; }
-
-            // ── Derived ───────────────────────────────────────────────────────
-
-            private static readonly string[] DateFormats =
-            {
-                "dd/MM/yy hh:mm tt",
-                "dd/MM/yy h:mm tt",
-                "dd/MM/yyyy hh:mm tt",
-                "dd/MM/yyyy h:mm tt",
-                "dd-MM-yy hh:mm tt",
-                "dd-MM-yy h:mm tt",
-                "dd-MM-yyyy hh:mm tt",
-                "dd-MM-yyyy h:mm tt",
-                "dd/MM/yy HH:mm",
-                "dd/MM/yyyy HH:mm",
-                "dd/MM/yy",
-                "dd/MM/yyyy"
-            };
-
-            private bool _dateResolved;
-            private DateTime _dateRecorded;
-
-            [JsonIgnore]
-            public DateTime DateRecorded
-            {
-                get
-                {
-                    if (_dateResolved) return _dateRecorded;
-                    _dateResolved = true;
-
-                    var raw = (DateRecordedRaw ?? string.Empty).Trim();
-
-                    if (raw.Length > 0)
-                    {
-                        DateTime parsed;
-
-                        // 1. Try exact match against known day-first formats
-                        if (DateTime.TryParseExact(raw, DateFormats, CultureInfo.InvariantCulture,
-                                                   DateTimeStyles.None, out parsed))
-                        {
-                            _dateRecorded = parsed;
-                            return _dateRecorded;
-                        }
-
-                        // 2. Try British English culture (en-GB is day-first: DD/MM/YY)
-                        if (DateTime.TryParse(raw, new CultureInfo("en-GB"),
-                                              DateTimeStyles.None, out parsed))
-                        {
-                            _dateRecorded = parsed;
-                            return _dateRecorded;
-                        }
-
-                        // 3. General fallback parsing
-                        if (DateTime.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.None, out parsed))
-                        {
-                            _dateRecorded = parsed;
-                            return _dateRecorded;
-                        }
-
-                        System.Diagnostics.Debug.WriteLine("[Dashboard] Unparsed date: " + raw);
-                    }
-
-                    _dateRecorded = DateTime.MinValue;
-                    return _dateRecorded;
-                }
-            }
-
-            [JsonIgnore]
-            public bool HasValidDate
-            {
-                get { return DateRecorded != DateTime.MinValue; }
-            }
-
-            [JsonIgnore]
-            public decimal Amount
-            {
-                get
-                {
-                    var raw = (AmountRaw ?? string.Empty).Replace("\u20A6", string.Empty).Trim();
-
-                    decimal value;
-                    return decimal.TryParse(raw, NumberStyles.Any, CultureInfo.InvariantCulture, out value)
-                        ? value
-                        : 0m;
-                }
-            }
-
-            /// <summary>Patient name when the feed supplies one, service otherwise.</summary>
-            public string PrimaryLine
-            {
-                get
-                {
-                    if (!string.IsNullOrWhiteSpace(PayerId)) return PayerId.Trim();
-                    return string.IsNullOrWhiteSpace(ServiceName) ? "Payment" : ServiceName.Trim();
-                }
-            }
-
-            public string SecondaryLine
-            {
-                get
-                {
-                    var time = HasValidDate
-                        ? (DateRecorded.Date == DateTime.Now.Date
-                            ? DateRecorded.ToString("h:mm tt", CultureInfo.InvariantCulture)
-                            : DateRecorded.ToString("MMM d, h:mm tt", CultureInfo.InvariantCulture))
-                        : (DateRecordedRaw ?? string.Empty).Trim();
-
-                    var service = string.IsNullOrWhiteSpace(ServiceName) ? null : ServiceName.Trim();
-
-                    if (service == null) return time;
-                    return time.Length == 0 ? service : service + " · " + time;
-                }
-            }
-
-            public string FormattedAmount
-            {
-                get { return "₦" + Math.Abs(Amount).ToString("N0", CultureInfo.InvariantCulture); }
-            }
-
-            public string Initials
-            {
-                get
-                {
-                    var source = PrimaryLine;
-                    var parts = source.Split(new[] { ' ', '.', '-' }, StringSplitOptions.RemoveEmptyEntries);
-
-                    if (parts.Length >= 2)
-                        return (parts[0].Substring(0, 1) + parts[1].Substring(0, 1)).ToUpperInvariant();
-
-                    return (source.Length >= 2 ? source.Substring(0, 2) : source).ToUpperInvariant();
-                }
-            }
-
-            /// <summary>
-            /// This feed carries no status field, so a returned row is a settled
-            /// row. If the API starts sending one, it is honoured.
-            /// </summary>
-            private bool IsApproved
-            {
-                get
-                {
-                    if (string.IsNullOrWhiteSpace(Status)) return true;
-
-                    var s = Status.Trim();
-                    return s.IndexOf("approve", StringComparison.OrdinalIgnoreCase) >= 0
-                        || s.IndexOf("success", StringComparison.OrdinalIgnoreCase) >= 0
-                        || s.IndexOf("paid", StringComparison.OrdinalIgnoreCase) >= 0
-                        || s.Equals("00", StringComparison.OrdinalIgnoreCase);
-                }
-            }
-
-            public string StatusDisplay
-            {
-                get { return IsApproved ? "Paid" : Status.Trim(); }
-            }
-
-            public Color StatusColor
-            {
-                get { return IsApproved ? Color.FromHex("#0F6E56") : Color.FromHex("#854F0B"); }
-            }
-
-            public Color BadgeFill
-            {
-                get { return IsApproved ? Color.FromHex("#E1F5EE") : Color.FromHex("#FAEEDA"); }
-            }
-
-            public Color BadgeTextColor
-            {
-                get { return IsApproved ? Color.FromHex("#0F6E56") : Color.FromHex("#854F0B"); }
-            }
-        }
-
-        /// <summary>
-        /// Mirrors the pattern already used by History.TransactionDataContext so
-        /// the dashboard stops poking labels through Device.BeginInvokeOnMainThread.
-        /// </summary>
         public class DashboardViewModel : INotifyPropertyChanged
         {
             public event PropertyChangedEventHandler PropertyChanged;
