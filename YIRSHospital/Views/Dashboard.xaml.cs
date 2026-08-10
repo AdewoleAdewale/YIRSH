@@ -24,7 +24,12 @@ namespace YIRSHospital.Views
         private const string PRINTER_LAST_OK_KEY = "printer_last_ok_utc";
         private const int MAX_RETRY_COUNT = 3;
         private const int ACTIVITY_WINDOW_DAYS = 7;
-        private const int ACTIVITY_ROW_LIMIT = 12;
+      
+        private const int ACTIVITY_ROW_LIMIT = 5;
+
+        #region Constants
+
+        #endregion
 
         #endregion
 
@@ -207,50 +212,69 @@ namespace YIRSHospital.Views
             var endDate = DateTime.Now;
             var startDate = endDate.Date.AddDays(-ACTIVITY_WINDOW_DAYS);
 
-            var rows = await RequestTransactionsAsync(startDate, endDate, "MM/dd/yyyy");
+            // 1. Try MM-dd-yyyy (hyphens) as expected by the working API URL
+            var rows = await RequestTransactionsAsync(startDate, endDate, "MM-dd-yyyy");
 
             if (rows != null && rows.Count > 0) return rows;
 
-            var fallback = await RequestTransactionsAsync(startDate, endDate, "dd/MM/yyyy");
+            // 2. Try dd-MM-yyyy fallback
+            var fallback = await RequestTransactionsAsync(startDate, endDate, "dd-MM-yyyy");
 
             if (fallback != null && fallback.Count > 0) return fallback;
 
             return rows ?? fallback;
         }
 
- 
-
         private async Task<List<RecentTransaction>> RequestTransactionsAsync(DateTime from, DateTime to, string dateFormat)
         {
-            var url = "https://yobe.osoftpay.net/api/TaskPayers/gettransaction"
-                    + "?Email=" + Uri.EscapeDataString(LoginPage.ValidUserMail ?? string.Empty)
-                    + "&SearchFrom=" + Uri.EscapeDataString(from.ToString(dateFormat, CultureInfo.InvariantCulture))
-                    + "&SearchTo=" + Uri.EscapeDataString(to.ToString(dateFormat, CultureInfo.InvariantCulture));
-
-            var response = await _httpClient.GetAsync(url);
-            var body = await response.Content.ReadAsStringAsync();
-
-            if (!response.IsSuccessStatusCode)
-            {
-                System.Diagnostics.Debug.WriteLine(
-                    "[Dashboard] gettransaction " + (int)response.StatusCode + ": " + Snippet(body));
-                return null;
-            }
-
-            if (string.IsNullOrWhiteSpace(body)) return new List<RecentTransaction>();
-
-            // The endpoint answers with a bare object (not an array) when the
-            // agent has no records, so don't let that read as a hard failure.
-            if (!body.TrimStart().StartsWith("[", StringComparison.Ordinal))
-            {
-                System.Diagnostics.Debug.WriteLine("[Dashboard] Non-array payload: " + Snippet(body));
-                return new List<RecentTransaction>();
-            }
-
             try
             {
-                // DateParseHandling.None keeps Newtonsoft from trying to coerce
-                // the date strings itself — RecentTransaction parses them.
+                // Fallback to empty string safely if Email is null
+                var userEmail = string.IsNullOrWhiteSpace(LoginPage.ValidUserMail)
+                    ? string.Empty
+                    : LoginPage.ValidUserMail.Trim();
+
+                var searchFrom = from.ToString(dateFormat, CultureInfo.InvariantCulture);
+                var searchTo = to.ToString(dateFormat, CultureInfo.InvariantCulture);
+
+                var url = "https://yobe.osoftpay.net/api/TaskPayers/gettransaction"
+                        + "?Email=" + Uri.EscapeDataString(userEmail)
+                        + "&SearchFrom=" + Uri.EscapeDataString(searchFrom)
+                        + "&SearchTo=" + Uri.EscapeDataString(searchTo);
+
+                // Guard against HttpClient network socket/DNS exceptions preventing app crashes
+                HttpResponseMessage response;
+                try
+                {
+                    response = await _httpClient.GetAsync(url).ConfigureAwait(false);
+                }
+                catch (Exception netEx)
+                {
+                    System.Diagnostics.Debug.WriteLine("[Dashboard] Network call failed: " + netEx.Message);
+                    return null;
+                }
+
+                if (response == null) return null;
+
+                var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    System.Diagnostics.Debug.WriteLine(
+                        "[Dashboard] gettransaction " + (int)response.StatusCode + ": " + Snippet(body));
+                    return null;
+                }
+
+                if (string.IsNullOrWhiteSpace(body)) return new List<RecentTransaction>();
+
+                // Handle bare objects or non-array payloads without failing
+                var trimmed = body.TrimStart();
+                if (!trimmed.StartsWith("[", StringComparison.Ordinal))
+                {
+                    System.Diagnostics.Debug.WriteLine("[Dashboard] Non-array payload: " + Snippet(body));
+                    return new List<RecentTransaction>();
+                }
+
                 var settings = new JsonSerializerSettings
                 {
                     DateParseHandling = DateParseHandling.None
@@ -259,26 +283,24 @@ namespace YIRSHospital.Views
                 var parsed = JsonConvert.DeserializeObject<List<RecentTransaction>>(body, settings);
                 return parsed ?? new List<RecentTransaction>();
             }
-            catch (JsonException jex)
+            catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine(
-                    "[Dashboard] Could not read transactions: " + jex.Message + " | " + Snippet(body));
+                System.Diagnostics.Debug.WriteLine("[Dashboard] RequestTransactionsAsync exception: " + ex.Message);
                 return null;
             }
         }
-
         private static string Snippet(string value)
         {
             if (string.IsNullOrEmpty(value)) return "(empty)";
             return value.Length <= 300 ? value : value.Substring(0, 300) + "…";
         }
 
+  
         private void ApplyTransactions(List<RecentTransaction> all)
         {
             var today = DateTime.Now.Date;
 
-            // Rows whose date could not be parsed still count toward the seven-day
-            // figure but are kept out of "today" rather than guessed into it.
+            // Filter today's transactions accurately
             var todays = all.Where(t => t.HasValidDate && t.DateRecorded.Date == today).ToList();
 
             var collectedToday = todays.Sum(t => Math.Abs(t.Amount));
@@ -290,8 +312,9 @@ namespace YIRSHospital.Views
                 .OrderByDescending(t => t.DateRecorded)
                 .FirstOrDefault();
 
+            // Grab latest rows (including items with unparsed dates if any exist)
             var rows = all
-                .OrderByDescending(t => t.DateRecorded)
+                .OrderByDescending(t => t.HasValidDate ? t.DateRecorded : DateTime.MinValue)
                 .Take(ACTIVITY_ROW_LIMIT)
                 .ToList();
 
@@ -305,16 +328,18 @@ namespace YIRSHospital.Views
                 _vm.CollectedTodaySubline = count == 0
                     ? "No payments recorded yet today"
                     : count + (count == 1 ? " payment" : " payments")
-                      + " · last at " + latest.DateRecorded.ToString("h:mm tt", CultureInfo.InvariantCulture);
+                      + (latest != null ? " · last at " + latest.DateRecorded.ToString("h:mm tt", CultureInfo.InvariantCulture) : "");
 
                 _vm.RecentTransactions.Clear();
-                foreach (var row in rows) _vm.RecentTransactions.Add(row);
+                foreach (var row in rows)
+                {
+                    _vm.RecentTransactions.Add(row);
+                }
 
                 _vm.EmptyTitle = "Nothing collected yet";
                 _vm.EmptyBody = "Payments you take will appear here.";
             });
         }
-
         private static string FormatNaira(decimal value)
         {
             return "₦" + value.ToString("N0", CultureInfo.InvariantCulture);
@@ -859,23 +884,25 @@ namespace YIRSHospital.Views
             // ── Derived ───────────────────────────────────────────────────────
 
             private static readonly string[] DateFormats =
-            {
-                "dd/MM/yy hh:mm tt",
-                "dd/MM/yyyy hh:mm tt",
-                "dd/MM/yy HH:mm",
-                "dd/MM/yyyy HH:mm",
-                "dd/MM/yy",
-                "dd/MM/yyyy"
-            };
+  {
+    "dd/MM/yy hh:mm tt",
+    "dd/MM/yy h:mm tt",
+    "dd/MM/yyyy hh:mm tt",
+    "dd/MM/yyyy h:mm tt",
+    "dd-MM-yy hh:mm tt",
+    "dd-MM-yy h:mm tt",
+    "dd-MM-yyyy hh:mm tt",
+    "dd-MM-yyyy h:mm tt",
+    "dd/MM/yy HH:mm",
+    "dd/MM/yyyy HH:mm",
+    "dd/MM/yy",
+    "dd/MM/yyyy"
+};
 
             private bool _dateResolved;
             private DateTime _dateRecorded;
 
-            /// <summary>
-            /// Day-first, confirmed against live data: the feed returns 10/08/26
-            /// for 10 August. Parsing month-first would silently reorder the list
-            /// rather than error, so the formats are explicit and invariant.
-            /// </summary>
+           
             [JsonIgnore]
             public DateTime DateRecorded
             {
@@ -890,6 +917,7 @@ namespace YIRSHospital.Views
                     {
                         DateTime parsed;
 
+                        // 1. Try exact match against known day-first formats
                         if (DateTime.TryParseExact(raw, DateFormats, CultureInfo.InvariantCulture,
                                                    DateTimeStyles.None, out parsed))
                         {
@@ -897,10 +925,16 @@ namespace YIRSHospital.Views
                             return _dateRecorded;
                         }
 
-                        // en-GB is day-first too, so this stays consistent with
-                        // the explicit formats above rather than fighting them.
+                        // 2. Try British English culture (en-GB is day-first: DD/MM/YY)
                         if (DateTime.TryParse(raw, new CultureInfo("en-GB"),
                                               DateTimeStyles.None, out parsed))
+                        {
+                            _dateRecorded = parsed;
+                            return _dateRecorded;
+                        }
+
+                        // 3. General fallback parsing
+                        if (DateTime.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.None, out parsed))
                         {
                             _dateRecorded = parsed;
                             return _dateRecorded;

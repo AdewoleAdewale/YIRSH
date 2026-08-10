@@ -111,11 +111,7 @@
                         <yummy:PancakeView BackgroundColor="{StaticResource Brand}"
                                            CornerRadius="0,0,22,22"
                                            Padding="16,14,16,20">
-                            <yummy:PancakeView.Padding>
-                                <OnIdiom x:TypeArguments="Thickness"
-             Phone="24,48,24,40"
-             Tablet="32,72,32,56"/>
-                            </yummy:PancakeView.Padding>
+
                             <StackLayout Spacing="0">
 
                                 <!-- Identity row -->
@@ -294,11 +290,7 @@
                                            HasShadow="True"
                                            Elevation="6">
 
-                            <yummy:PancakeView.Padding>
-                                <OnIdiom x:TypeArguments="Thickness"
-             Phone="24,48,24,40"
-             Tablet="32,72,32,56"/>
-                            </yummy:PancakeView.Padding>
+  
 
                             <Grid ColumnSpacing="12">
                                 <Grid.ColumnDefinitions>
@@ -336,11 +328,7 @@
                             </Grid.ColumnDefinitions>
 
                             <yummy:PancakeView Grid.Column="0" Style="{StaticResource QuickTile}">
-                                <yummy:PancakeView.Padding>
-                                    <OnIdiom x:TypeArguments="Thickness"
-             Phone="24,48,24,40"
-             Tablet="32,72,32,56"/>
-                                </yummy:PancakeView.Padding>
+                          
                                 <StackLayout Spacing="6">
                                     <yummy:PancakeView Style="{StaticResource TileBadge}" BackgroundColor="{StaticResource MintFill}">
                                         <Label Text="P" Style="{StaticResource TileBadgeText}" TextColor="{StaticResource MintText}"/>
