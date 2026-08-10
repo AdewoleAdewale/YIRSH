@@ -24,23 +24,24 @@ namespace YIRSHospital.Views
         private const string PRINTER_LAST_OK_KEY = "printer_last_ok_utc";
         private const int MAX_RETRY_COUNT = 3;
         private const int ACTIVITY_WINDOW_DAYS = 7;
-      
         private const int ACTIVITY_ROW_LIMIT = 5;
-
-        #region Constants
-
-        #endregion
 
         #endregion
 
         #region Fields
 
         private readonly DashboardViewModel _vm;
-        private readonly HttpClient _httpClient;
         private CancellationTokenSource _cancellationTokenSource;
         private bool _isInitialized;
         private bool _isLoadingData;
         private int _retryCount;
+
+        /// <summary>
+        /// Retained across the fetch so the empty state can say what actually went
+        /// wrong. "Couldn't load activity" for a handshake failure sent an agent to
+        /// check their signal for the better part of a shift.
+        /// </summary>
+        private Exception _lastFetchError;
 
         #endregion
 
@@ -51,9 +52,6 @@ namespace YIRSHospital.Views
             try
             {
                 InitializeComponent();
-
-                _httpClient = new HttpClient();
-                _httpClient.Timeout = TimeSpan.FromSeconds(30);
 
                 _vm = new DashboardViewModel();
                 _vm.RefreshCommand = new Command(async () => await RefreshAsync(pullToRefresh: true));
@@ -162,6 +160,7 @@ namespace YIRSHospital.Views
             }
 
             _isLoadingData = true;
+            _lastFetchError = null;
 
             try
             {
@@ -177,9 +176,7 @@ namespace YIRSHospital.Views
 
                 if (transactions == null)
                 {
-                    _vm.SetEmptyState(
-                        "Couldn't load activity",
-                        "Pull down to try again.");
+                    ApplyFetchFailureState();
                     return;
                 }
 
@@ -187,17 +184,37 @@ namespace YIRSHospital.Views
             }
             catch (Exception ex)
             {
+                _lastFetchError = ex;
                 System.Diagnostics.Debug.WriteLine("[Dashboard] Refresh failed: " + ex.Message);
 
-                _vm.SetEmptyState(
-                    "Couldn't load activity",
-                    "Pull down to try again.");
+                ApplyFetchFailureState();
             }
             finally
             {
                 _isLoadingData = false;
                 Device.BeginInvokeOnMainThread(() => _vm.IsRefreshing = false);
             }
+        }
+
+        /// <summary>
+        /// A certificate failure is permanent until the app or the server is
+        /// changed, so it gets its own copy: retrying and re-checking the signal
+        /// will never help, and the agent needs to escalate instead.
+        /// </summary>
+        private void ApplyFetchFailureState()
+        {
+            if (ApiClient.IsTlsFailure(_lastFetchError))
+            {
+                _vm.SetEmptyState(
+                    "Secure connection failed",
+                    "This device could not verify the server's certificate. "
+                    + "Update the app, then contact support if it persists.");
+                return;
+            }
+
+            _vm.SetEmptyState(
+                "Couldn't load activity",
+                "Pull down to try again.");
         }
 
         /// <summary>
@@ -216,6 +233,10 @@ namespace YIRSHospital.Views
             var rows = await RequestTransactionsAsync(startDate, endDate, "MM-dd-yyyy");
 
             if (rows != null && rows.Count > 0) return rows;
+
+            // A handshake failure will fail identically on the second format;
+            // don't spend another 30-second timeout proving it.
+            if (rows == null && ApiClient.IsTlsFailure(_lastFetchError)) return null;
 
             // 2. Try dd-MM-yyyy fallback
             var fallback = await RequestTransactionsAsync(startDate, endDate, "dd-MM-yyyy");
@@ -242,15 +263,18 @@ namespace YIRSHospital.Views
                         + "&SearchFrom=" + Uri.EscapeDataString(searchFrom)
                         + "&SearchTo=" + Uri.EscapeDataString(searchTo);
 
-                // Guard against HttpClient network socket/DNS exceptions preventing app crashes
+                // ApiClient.Shared carries the platform handler with the app's
+                // trust anchors attached. A locally constructed HttpClient gets the
+                // stock handler and fails the handshake against this host.
                 HttpResponseMessage response;
                 try
                 {
-                    response = await _httpClient.GetAsync(url).ConfigureAwait(false);
+                    response = await ApiClient.Shared.GetAsync(url).ConfigureAwait(false);
                 }
                 catch (Exception netEx)
                 {
-                    System.Diagnostics.Debug.WriteLine("[Dashboard] Network call failed: " + netEx.Message);
+                    _lastFetchError = netEx;
+                    System.Diagnostics.Debug.WriteLine("[Dashboard] Network call failed: " + netEx);
                     return null;
                 }
 
@@ -285,17 +309,18 @@ namespace YIRSHospital.Views
             }
             catch (Exception ex)
             {
+                _lastFetchError = ex;
                 System.Diagnostics.Debug.WriteLine("[Dashboard] RequestTransactionsAsync exception: " + ex.Message);
                 return null;
             }
         }
+
         private static string Snippet(string value)
         {
             if (string.IsNullOrEmpty(value)) return "(empty)";
             return value.Length <= 300 ? value : value.Substring(0, 300) + "…";
         }
 
-  
         private void ApplyTransactions(List<RecentTransaction> all)
         {
             var today = DateTime.Now.Date;
@@ -340,6 +365,7 @@ namespace YIRSHospital.Views
                 _vm.EmptyBody = "Payments you take will appear here.";
             });
         }
+
         private static string FormatNaira(decimal value)
         {
             return "₦" + value.ToString("N0", CultureInfo.InvariantCulture);
@@ -770,6 +796,7 @@ namespace YIRSHospital.Views
         private string GetUserFriendlyErrorMessage(Exception ex)
         {
             if (ex is PrinterException) return ex.Message;
+            if (ApiClient.IsTlsFailure(ex)) return "Secure connection failed. This device could not verify the server's certificate.";
             if (ex is TaskCanceledException) return "That took too long. Please try again.";
             if (ex is HttpRequestException) return "Network error. Check your connection and try again.";
             if (ex is TimeoutException) return "The operation timed out. Please try again.";
@@ -787,6 +814,8 @@ namespace YIRSHospital.Views
                 _cancellationTokenSource = null;
 
                 Connectivity.ConnectivityChanged -= OnConnectivityChanged;
+
+                // ApiClient.Shared is process-scoped and deliberately not disposed here.
             }
             catch (Exception ex)
             {
@@ -884,25 +913,24 @@ namespace YIRSHospital.Views
             // ── Derived ───────────────────────────────────────────────────────
 
             private static readonly string[] DateFormats =
-  {
-    "dd/MM/yy hh:mm tt",
-    "dd/MM/yy h:mm tt",
-    "dd/MM/yyyy hh:mm tt",
-    "dd/MM/yyyy h:mm tt",
-    "dd-MM-yy hh:mm tt",
-    "dd-MM-yy h:mm tt",
-    "dd-MM-yyyy hh:mm tt",
-    "dd-MM-yyyy h:mm tt",
-    "dd/MM/yy HH:mm",
-    "dd/MM/yyyy HH:mm",
-    "dd/MM/yy",
-    "dd/MM/yyyy"
-};
+            {
+                "dd/MM/yy hh:mm tt",
+                "dd/MM/yy h:mm tt",
+                "dd/MM/yyyy hh:mm tt",
+                "dd/MM/yyyy h:mm tt",
+                "dd-MM-yy hh:mm tt",
+                "dd-MM-yy h:mm tt",
+                "dd-MM-yyyy hh:mm tt",
+                "dd-MM-yyyy h:mm tt",
+                "dd/MM/yy HH:mm",
+                "dd/MM/yyyy HH:mm",
+                "dd/MM/yy",
+                "dd/MM/yyyy"
+            };
 
             private bool _dateResolved;
             private DateTime _dateRecorded;
 
-           
             [JsonIgnore]
             public DateTime DateRecorded
             {
