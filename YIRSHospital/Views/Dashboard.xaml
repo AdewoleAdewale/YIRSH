@@ -6,6 +6,8 @@
              Padding="0"
              BackgroundColor="#F1F1EE"
              NavigationPage.HasNavigationBar="False"
+               xmlns:android="clr-namespace:Xamarin.Forms.PlatformConfiguration.AndroidSpecific;assembly=Xamarin.Forms.Core"
+             android:Application.WindowSoftInputModeAdjust="Resize"
              x:Name="DashboardPage">
 
     <ContentPage.Resources>
@@ -108,7 +110,12 @@
                         <!-- Brand header -->
                         <yummy:PancakeView BackgroundColor="{StaticResource Brand}"
                                            CornerRadius="0,0,22,22"
-                                           Padding="16,44,16,20">
+                                           Padding="16,14,16,20">
+                            <yummy:PancakeView.Padding>
+                                <OnIdiom x:TypeArguments="Thickness"
+             Phone="24,48,24,40"
+             Tablet="32,72,32,56"/>
+                            </yummy:PancakeView.Padding>
                             <StackLayout Spacing="0">
 
                                 <!-- Identity row -->
@@ -180,8 +187,10 @@
                                 <yummy:PancakeView BackgroundColor="#1A5138"
                                                    CornerRadius="11"
                                                    Padding="11,9"
+                                                   HorizontalOptions="CenterAndExpand" VerticalOptions="CenterAndExpand"
                                                    Margin="0,14,0,0">
-                                    <Grid ColumnSpacing="9">
+                                    
+                                    <Grid ColumnSpacing="9" >
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="4"/>
                                             <ColumnDefinition Width="*"/>
@@ -190,10 +199,10 @@
                                         <BoxView Grid.Column="0"
                                                  WidthRequest="4"
                                                  CornerRadius="2"
-                                                 BackgroundColor="#9FE1CB"
+                                                 BackgroundColor="OrangeRed"
                                                  VerticalOptions="Fill"/>
 
-                                        <StackLayout Grid.Column="1" Spacing="1">
+                                        <StackLayout Grid.Column="1" Spacing="1" VerticalOptions="CenterAndExpand">
                                             <Label Text="{Binding HospitalName}"
                                                    TextColor="{StaticResource OnBrand}"
                                                    FontSize="12"
@@ -284,6 +293,13 @@
                                            Padding="16,15"
                                            HasShadow="True"
                                            Elevation="6">
+
+                            <yummy:PancakeView.Padding>
+                                <OnIdiom x:TypeArguments="Thickness"
+             Phone="24,48,24,40"
+             Tablet="32,72,32,56"/>
+                            </yummy:PancakeView.Padding>
+
                             <Grid ColumnSpacing="12">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
@@ -320,6 +336,11 @@
                             </Grid.ColumnDefinitions>
 
                             <yummy:PancakeView Grid.Column="0" Style="{StaticResource QuickTile}">
+                                <yummy:PancakeView.Padding>
+                                    <OnIdiom x:TypeArguments="Thickness"
+             Phone="24,48,24,40"
+             Tablet="32,72,32,56"/>
+                                </yummy:PancakeView.Padding>
                                 <StackLayout Spacing="6">
                                     <yummy:PancakeView Style="{StaticResource TileBadge}" BackgroundColor="{StaticResource MintFill}">
                                         <Label Text="P" Style="{StaticResource TileBadgeText}" TextColor="{StaticResource MintText}"/>

@@ -28,6 +28,8 @@ namespace YIRSHospital.Views
         public static string Message { get; set; }
         public static string category { get; set; }
         public static string CollectionPoint { get; set; }
+
+        private double _lastWidth = -1;
         #endregion
 
         #region Private Fields
@@ -142,7 +144,7 @@ namespace YIRSHospital.Views
             Device.BeginInvokeOnMainThread(() =>
             {
                 PasswordEntry.IsPassword = !isVisible;
-                PasswordToggleButton.Source = isVisible ? "icons8eyes_open" : "icons8eyes";
+                PasswordToggleButton.Text = isVisible ? "Hide" : "Show";
             });
         }
         #endregion
@@ -649,6 +651,8 @@ namespace YIRSHospital.Views
             });
         }
         #endregion
+
+  
 
         #region Lifecycle
         protected override bool OnBackButtonPressed()

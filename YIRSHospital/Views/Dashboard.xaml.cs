@@ -218,8 +218,9 @@ namespace YIRSHospital.Views
             return rows ?? fallback;
         }
 
-        private async Task<List<RecentTransaction>> RequestTransactionsAsync(
-            DateTime from, DateTime to, string dateFormat)
+ 
+
+        private async Task<List<RecentTransaction>> RequestTransactionsAsync(DateTime from, DateTime to, string dateFormat)
         {
             var url = "https://yobe.osoftpay.net/api/TaskPayers/gettransaction"
                     + "?Email=" + Uri.EscapeDataString(LoginPage.ValidUserMail ?? string.Empty)
