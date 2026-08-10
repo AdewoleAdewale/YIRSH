@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using Xamarin.Essentials;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
+using YIRSHospital.Services;
 
 namespace YIRSHospital.Views
 {
@@ -159,7 +160,7 @@ namespace YIRSHospital.Views
                     cancelText: "Cancel"
                 );
 
-                var url = $"{API_BASE_URL}?patientId={Uri.EscapeDataString(patientId)}";
+                var url = $"{API_BASE_URL}?patientId={Uri.EscapeDataString(patientId)}" + "?HospitalCode=" + HospitalContext.Code;
 
                 Debug.WriteLine($"Making API request to: {url}");
 

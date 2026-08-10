@@ -266,7 +266,7 @@ namespace YIRSHospital.Services
 
             var query = "?HospitalCode=" + Uri.EscapeDataString(hospitalCode);
             var result = await GetJsonAsync<List<HospitalDepartment>>(
-                AGENTS + "/AllHospitalDepartment" + query, ct);
+                AGENTS + "/AllHospitalDepartment " + query, ct);
 
             if (result.Success && result.Data != null && result.Data.Count > 0)
                 return result;

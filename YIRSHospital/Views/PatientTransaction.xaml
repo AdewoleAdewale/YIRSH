@@ -6,10 +6,11 @@
              x:Class="YIRSHospital.Views.PatientTransaction"
              Padding="0"
              BackgroundColor="#F5F7FA"
-             NavigationPage.HasNavigationBar="True">
+             NavigationPage.HasNavigationBar="False">
 
     <ContentPage.Resources>
         <ResourceDictionary>
+            
             <Style x:Key="HeaderLabelStyle" TargetType="Label">
                 <Setter Property="FontAttributes" Value="Bold"/>
                 <Setter Property="FontSize" Value="24"/>
@@ -23,6 +24,7 @@
                 <Setter Property="HasShadow" Value="True"/>
                 <Setter Property="Elevation" Value="8"/>
             </Style>
+            
         </ResourceDictionary>
     </ContentPage.Resources>
 
@@ -33,7 +35,7 @@
             <yummy:PancakeView BackgroundGradientStartColor="#004225" 
                               BackgroundGradientEndColor="#00875A"
                               BackgroundGradientAngle="135"
-                              Padding="20,50,20,30">
+                              Padding="20,20,20,30">
                 <StackLayout Spacing="15">
 
                     <yummy:PancakeView Grid.Row="0"
