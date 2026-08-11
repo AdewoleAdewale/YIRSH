@@ -8,6 +8,7 @@ using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using YIRSHospital.Views;
 
 namespace YIRSHospital.Services
 {
@@ -261,44 +262,31 @@ namespace YIRSHospital.Services
         public static async Task<ApiResult<List<HospitalDepartment>>> GetDepartmentsAsync(
             string hospitalCode, CancellationToken ct = default(CancellationToken))
         {
-            if (string.IsNullOrWhiteSpace(hospitalCode))
-                return ApiResult<List<HospitalDepartment>>.Fail("No hospital selected.");
+            if (string.IsNullOrWhiteSpace(hospitalCode))  return ApiResult<List<HospitalDepartment>>.Fail("No hospital selected.");
 
-            var query = "?HospitalCode=" + Uri.EscapeDataString(hospitalCode);
-            var result = await GetJsonAsync<List<HospitalDepartment>>(
-                AGENTS + "/AllHospitalDepartment " + query, ct);
+            string code = string.IsNullOrWhiteSpace(hospitalCode) ? HospitalContext.Code : hospitalCode;
+            bool isDefault = string.Equals(code, "DEFAULT", StringComparison.OrdinalIgnoreCase) || string.IsNullOrWhiteSpace(code);
+            string url = isDefault
+                  ? AGENTS + "/ListDepartment"
+                  : AGENTS + "/AllHospitalDepartment?HospitalCode=" + Uri.EscapeDataString(code);
+
+            Debug.WriteLine("[HospitalApi] GetDepartments -> GET " + url);
+             var result = await GetJsonAsync<List<HospitalDepartment>>(url, ct);
 
             if (result.Success && result.Data != null && result.Data.Count > 0)
                 return result;
 
             Debug.WriteLine("[HospitalApi] Department GET failed (" + result.ErrorMessage + "), retrying as POST.");
 
-            try
-            {
-                var form = new FormUrlEncodedContent(new[]
-                {
-                    new KeyValuePair<string, string>("HospitalCode", hospitalCode)
-                });
+        
 
-                using (var response = await _client.PostAsync(AGENTS + "/AllHospitalDepartment", form, ct))
-                {
-                    var json = await response.Content.ReadAsStringAsync();
-                    if (response.IsSuccessStatusCode && !string.IsNullOrWhiteSpace(json))
-                    {
-                        var departments = JsonConvert.DeserializeObject<List<HospitalDepartment>>(json);
-                        if (departments != null && departments.Count > 0)
-                            return ApiResult<List<HospitalDepartment>>.Ok(departments);
-                    }
-                }
-            }
-            catch (Exception ex)
+            if (!isDefault)
             {
-                Debug.WriteLine("[HospitalApi] Department POST fallback failed: " + ex.Message);
+                Debug.WriteLine("[HospitalApi] Specific department GET failed, falling back to ListDepartment");
+                return await GetJsonAsync<List<HospitalDepartment>>(AGENTS + "/ListDepartment", ct);
             }
 
-            return result.Success
-                ? ApiResult<List<HospitalDepartment>>.Fail("No departments returned for " + hospitalCode + ".")
-                : result;
+            return result;
         }
 
         // ── 5. Register patient ───────────────────────────────────────────────
@@ -471,6 +459,34 @@ namespace YIRSHospital.Services
 
         // ── Plumbing ──────────────────────────────────────────────────────────
 
+        public static async Task<ApiResult<PatientTransactionResponse>> GetPatientTransactionsAsync(
+            string patientNo, string hospitalCode = null, int? hospitalId = null, CancellationToken ct = default(CancellationToken))
+        {
+            if (string.IsNullOrWhiteSpace(patientNo))
+                return ApiResult<PatientTransactionResponse>.Fail("Patient Number is required.");
+
+            string code = string.IsNullOrWhiteSpace(hospitalCode) ? HospitalContext.Code : hospitalCode;
+            bool isDefault = string.Equals(code, "DEFAULT", StringComparison.OrdinalIgnoreCase) || string.IsNullOrWhiteSpace(code);
+
+            string url;
+            if (isDefault)
+            {
+                // Endpoint for Yobe State Specialist Hospital (DEFAULT)
+                url = AGENTS + "/GetPatientTransactions?patientId=" + Uri.EscapeDataString(patientNo);
+            }
+            else
+            {
+                // Endpoint for specific hospitals (DAMAGUM, POTISKUM, etc.)
+                url = AGENTS + "/GetHospitalPatientTransactions?patientNo=" + Uri.EscapeDataString(patientNo);
+                if (hospitalId.HasValue && hospitalId.Value > 0)
+                    url += "&hospitalId=" + hospitalId.Value;
+                else if (!string.IsNullOrWhiteSpace(code))
+                    url += "&hospitalCode=" + Uri.EscapeDataString(code);
+            }
+
+            Debug.WriteLine("[HospitalApi] GetPatientTransactions -> GET " + url);
+            return await GetJsonAsync<PatientTransactionResponse>(url, ct);
+        }
         private static async Task<ApiResult<T>> GetJsonAsync<T>(string url, CancellationToken ct)
         {
             try

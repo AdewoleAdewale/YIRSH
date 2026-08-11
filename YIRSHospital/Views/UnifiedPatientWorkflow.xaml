@@ -158,7 +158,8 @@ CornerRadius="0">
                                VerticalOptions="Center"/>
                     </yummy:PancakeView>
                     <StackLayout VerticalOptions="Center" Spacing="2">
-                        <Label Text="YOBE STATE SPECIALIST HOSPITAL"
+                        <Label 
+                               x:Name="Hospitalname"
                                FontSize="15"
                                FontAttributes="Bold"
                                TextColor="White"/>

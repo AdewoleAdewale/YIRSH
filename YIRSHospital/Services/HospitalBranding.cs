@@ -4,22 +4,12 @@ using System.Diagnostics;
 
 namespace YIRSHospital.Services
 {
-    /// <summary>
-    /// Everything that changes on a printed receipt when the agent's hospital
-    /// changes: logo asset, official name, contact line and watermark.
-    ///
-    /// Call sites should never hard-code "Logo.png" or a hospital name again —
-    /// they read HospitalBranding.Current, which follows HospitalContext.Code.
-    /// </summary>
+  
     public sealed class HospitalBranding
     {
         /// <summary>Hospital code this branding belongs to.</summary>
         public string Code { get; private set; }
 
-        /// <summary>
-        /// Printed as the receipt header. Used only when the live hospital name
-        /// from GetHospitalInfo is unavailable — see <see cref="StoreName"/>.
-        /// </summary>
         public string FallbackName { get; private set; }
 
         /// <summary>Short form, used for the diagonal watermark.</summary>
@@ -86,16 +76,7 @@ namespace YIRSHospital.Services
             return Default;
         }
 
-        // ── Receipt values ────────────────────────────────────────────────────
 
-        /// <summary>
-        /// The name printed on the receipt. Prefers the live displayName confirmed
-        /// by GetHospitalInfo so the receipt always matches what the platform has
-        /// on record, and falls back to the table above if that call hasn't run.
-        ///
-        /// DEFAULT is the exception: its API displayName is literally "DEFAULT",
-        /// which is meaningless on a printed receipt, so the fallback wins there.
-        /// </summary>
         public string StoreName
         {
             get
@@ -118,11 +99,6 @@ namespace YIRSHospital.Services
             get { return ShortName; }
         }
 
-        /// <summary>
-        /// Returns <see cref="LogoAsset"/> if it exists in the Assets folder,
-        /// otherwise the shared default logo. Without this a missing asset prints
-        /// a receipt with no logo at all, which looks like a printer fault.
-        /// </summary>
         public string ResolveLogoAsset()
         {
             if (AssetExists(LogoAsset)) return LogoAsset;

@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -19,11 +18,7 @@ namespace YIRSHospital.Views
     [XamlCompilation(XamlCompilationOptions.Compile)]
     public partial class PatientTransaction : ContentPage
     {
-        private HttpClient _httpClient;
         private CancellationTokenSource _cancellationTokenSource;
-        private const string API_BASE_URL = "https://yobe.osoftpay.net/api/Agents/GetPatientTransactions";
-        private const int REQUEST_TIMEOUT = 30;
-        private const int CONNECTION_TIMEOUT = 30000;
         private string _currentPatientId;
         private PatientTransactionResponse _currentResponse;
 
@@ -31,22 +26,6 @@ namespace YIRSHospital.Views
         {
             InitializeComponent();
             InitializeUI();
-
-            var handler = new HttpClientHandler
-            {
-                ServerCertificateCustomValidationCallback = (message, cert, chain, errors) =>
-                {
-                    // Accept all certificates (adjust for production)
-                    return true;
-                },
-                SslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls11
-            };
-
-
-            _httpClient = new HttpClient(handler)
-            {
-                Timeout = TimeSpan.FromMilliseconds(CONNECTION_TIMEOUT)
-            };
         }
 
         private void InitializeUI()
@@ -75,8 +54,7 @@ namespace YIRSHospital.Views
             if (string.IsNullOrWhiteSpace(patientId))
                 return false;
 
-            var pattern = @"^[A-Za-z0-9]{3,20}$";
-            return Regex.IsMatch(patientId, pattern);
+            return Regex.IsMatch(patientId, @"^[A-Za-z0-9]{1,20}$");
         }
 
         private void ClearResults()
@@ -96,9 +74,7 @@ namespace YIRSHospital.Views
         private async void Button_Clicked(object sender, EventArgs e)
         {
             var button = sender as Button;
-            if (button == null) return;
-
-            button.IsEnabled = false;
+            if (button != null) button.IsEnabled = false;
 
             try
             {
@@ -110,13 +86,13 @@ namespace YIRSHospital.Views
 
                 if (!IsValidPatientId(patientId))
                 {
-                    await ShowErrorAlert("Invalid Input", "Please enter a valid Patient ID (3-20 alphanumeric characters).");
+                    await DisplayAlert("Invalid Input", "Please enter a valid Patient ID.", "OK");
                     return;
                 }
 
-                if (!IsNetworkAvailable())
+                if (Connectivity.NetworkAccess != NetworkAccess.Internet)
                 {
-                    await ShowErrorAlert("No Internet Connection", "Please check your internet connection and try again.");
+                    await DisplayAlert("No Internet", "Please check your network connection.", "OK");
                     return;
                 }
 
@@ -124,27 +100,15 @@ namespace YIRSHospital.Views
             }
             catch (Exception ex)
             {
-                await HandleUnexpectedError(ex);
+                Debug.WriteLine($"[PatientTransaction] Error: {ex.Message}");
+                await DisplayAlert("Error", "An unexpected error occurred.", "OK");
             }
             finally
             {
                 Device.BeginInvokeOnMainThread(() =>
                 {
-                    button.IsEnabled = true;
+                    if (button != null) button.IsEnabled = true;
                 });
-            }
-        }
-
-        private bool IsNetworkAvailable()
-        {
-            try
-            {
-                var networkAccess = Connectivity.NetworkAccess;
-                return networkAccess == NetworkAccess.Internet;
-            }
-            catch
-            {
-                return false;
             }
         }
 
@@ -160,48 +124,33 @@ namespace YIRSHospital.Views
                     cancelText: "Cancel"
                 );
 
-                var url = $"{API_BASE_URL}?patientId={Uri.EscapeDataString(patientId)}" + "?HospitalCode=" + HospitalContext.Code;
+                var apiResult = await HospitalApiService.GetPatientTransactionsAsync(patientId, ct: cancellationToken);
 
-                Debug.WriteLine($"Making API request to: {url}");
-
-                using (var response = await _httpClient.GetAsync(url, cancellationToken))
+                if (apiResult.Success && apiResult.Data != null)
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
-
-                    if (response.IsSuccessStatusCode)
+                    _currentResponse = apiResult.Data;
+                    if (_currentResponse.Code == "00" && _currentResponse.Transactions?.Any() == true)
                     {
-                        var jsonContent = await response.Content.ReadAsStringAsync();
-
-                        if (string.IsNullOrWhiteSpace(jsonContent))
-                        {
-                            await ShowErrorAlert("Server Error", "Received empty response from server.");
-                            return;
-                        }
-
-                        await ProcessApiResponse(jsonContent);
+                        DisplayPatientInformation(_currentResponse);
                     }
                     else
                     {
-                        await HandleHttpError(response);
+                        ShowNoDataFoundMessage();
                     }
+                }
+                else
+                {
+                    await DisplayAlert("Service Error", apiResult.ErrorMessage ?? "Patient records not found.", "OK");
                 }
             }
             catch (OperationCanceledException)
             {
-                await ShowInfoAlert("Request Cancelled", "The search operation was cancelled.");
-            }
-            catch (HttpRequestException ex)
-            {
-                await ShowErrorAlert("Network Error", $"Failed to connect to server: {ex.Message}");
-            }
-            catch (JsonException ex)
-            {
-                await ShowErrorAlert("Data Error", "Failed to process server response. Please try again.");
-                Debug.WriteLine($"JSON parsing error: {ex.Message}");
+                // Request was cancelled
             }
             catch (Exception ex)
             {
-                await HandleUnexpectedError(ex);
+                Debug.WriteLine($"[SearchPatientTransactions] {ex.Message}");
+                await DisplayAlert("Error", "Failed to retrieve transactions.", "OK");
             }
             finally
             {
@@ -209,74 +158,32 @@ namespace YIRSHospital.Views
             }
         }
 
-        private async Task ProcessApiResponse(string jsonContent)
-        {
-            try
-            {
-                var result = JsonConvert.DeserializeObject<PatientTransactionResponse>(jsonContent);
-
-                if (result == null)
-                {
-                    await ShowErrorAlert("Invalid Response", "Received invalid data from server.");
-                    return;
-                }
-
-                _currentResponse = result;
-
-                await Device.InvokeOnMainThreadAsync(() =>
-                {
-                    if (result.Code == "00" && result.Transactions != null && result.Transactions.Any())
-                    {
-                        DisplayPatientInformation(result);
-                    }
-                    else
-                    {
-                        ShowNoDataFoundMessage();
-                    }
-                });
-            }
-            catch (JsonException ex)
-            {
-                Debug.WriteLine($"JSON deserialization error: {ex.Message}");
-                await ShowErrorAlert("Data Processing Error", "Failed to process the response from server.");
-            }
-        }
-
         private void DisplayPatientInformation(PatientTransactionResponse result)
         {
-            try
+            Device.BeginInvokeOnMainThread(() =>
             {
-                // Header Information
                 PatientNameLabel.Text = result.PatientName ?? "N/A";
                 PatientIdLabel.Text = $"ID: {result.PatientNo ?? "N/A"}";
                 TotalTransactionsLabel.Text = result.TotalTransactions.ToString();
                 TotalAmountLabel.Text = $"₦{result.TotalAmount:N2}";
                 GeneratedDate.Text = $"Generated: {DateTime.Now:dd MMM yyyy hh:mm tt}";
 
-                // Clear previous transactions
                 TransactionsStack.Children.Clear();
 
-                // Add transactions
-                foreach (var transaction in result.Transactions.OrderByDescending(t => t.DateList))
+                foreach (var transaction in result.Transactions.OrderByDescending(t => t.RawDate))
                 {
-                    var transactionView = CreateTransactionView(transaction);
-                    TransactionsStack.Children.Add(transactionView);
+                    var view = CreateTransactionView(transaction);
+                    TransactionsStack.Children.Add(view);
                 }
 
-                // Show the receipt with animation
                 ReceiptContainer.IsVisible = true;
                 ReceiptContainer.FadeTo(1, 300);
 
-                // Show share button
                 ShareButton.IsVisible = true;
                 ShareButton.FadeTo(1, 300);
 
-                UserDialogs.Instance.Toast("Patient transactions loaded successfully!", TimeSpan.FromSeconds(2));
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error displaying patient information: {ex.Message}");
-            }
+                UserDialogs.Instance.Toast("Transactions loaded successfully!", TimeSpan.FromSeconds(2));
+            });
         }
 
         private View CreateTransactionView(Transaction transaction)
@@ -293,107 +200,39 @@ namespace YIRSHospital.Views
 
             var mainStack = new StackLayout { Spacing = 10 };
 
-            // Service Name Header
+            // Header
             var serviceHeader = new Frame
             {
                 BackgroundColor = Color.FromHex("#004225"),
                 CornerRadius = 8,
                 Padding = new Thickness(12, 8),
-                HasShadow = false
+                HasShadow = false,
+                Content = new Label
+                {
+                    Text = transaction.ServiceTypeName ?? "Service Item",
+                    TextColor = Color.White,
+                    FontAttributes = FontAttributes.Bold,
+                    FontSize = 15,
+                    HorizontalTextAlignment = TextAlignment.Center
+                }
             };
-
-            serviceHeader.Content = new Label
-            {
-                Text = transaction.ServiceTypeName,
-                TextColor = Color.White,
-                FontAttributes = FontAttributes.Bold,
-                FontSize = 15,
-                HorizontalTextAlignment = TextAlignment.Center
-            };
-
             mainStack.Children.Add(serviceHeader);
 
-            // Amount and Status
-            var amountStatusGrid = new Grid
-            {
-                ColumnDefinitions =
-                {
-                    new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) },
-                    new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }
-                },
-                ColumnSpacing = 10
-            };
-
-            var amountFrame = new Frame
-            {
-                BackgroundColor = Color.FromHex("#FFF3E0"),
-                CornerRadius = 8,
-                Padding = new Thickness(10, 8),
-                HasShadow = false
-            };
-
-            var amountStack = new StackLayout { Spacing = 2 };
-            amountStack.Children.Add(new Label
-            {
-                Text = "Amount",
-                FontSize = 11,
-                TextColor = Color.FromHex("#666666"),
-                HorizontalTextAlignment = TextAlignment.Center
-            });
-            amountStack.Children.Add(new Label
-            {
-                Text = $"₦{transaction.Amount:N2}",
-                FontSize = 16,
-                FontAttributes = FontAttributes.Bold,
-                TextColor = Color.FromHex("#004225"),
-                HorizontalTextAlignment = TextAlignment.Center
-            });
-
-            amountFrame.Content = amountStack;
-            Grid.SetColumn(amountFrame, 0);
-            amountStatusGrid.Children.Add(amountFrame);
-
-            var statusFrame = new Frame
-            {
-                BackgroundColor = GetStatusColor(transaction.Status),
-                CornerRadius = 8,
-                Padding = new Thickness(10, 8),
-                HasShadow = false
-            };
-
-            var statusStack = new StackLayout { Spacing = 2 };
-            statusStack.Children.Add(new Label
-            {
-                Text = "Status",
-                FontSize = 11,
-                TextColor = Color.White,
-                HorizontalTextAlignment = TextAlignment.Center
-            });
-            statusStack.Children.Add(new Label
-            {
-                Text = GetStatusText(transaction.Status),
-                FontSize = 13,
-                FontAttributes = FontAttributes.Bold,
-                TextColor = Color.White,
-                HorizontalTextAlignment = TextAlignment.Center
-            });
-
-            statusFrame.Content = statusStack;
-            Grid.SetColumn(statusFrame, 1);
-            amountStatusGrid.Children.Add(statusFrame);
-
-            mainStack.Children.Add(amountStatusGrid);
-
-            // Additional Details
-            var detailsStack = new StackLayout { Spacing = 5, Margin = new Thickness(0, 5, 0, 0) };
-
+            // Details Grid
+            var detailsStack = new StackLayout { Spacing = 6 };
             detailsStack.Children.Add(CreateDetailRow("Transaction ID:", transaction.TransactionId));
-            detailsStack.Children.Add(CreateDetailRow("Date:", FormatDate(transaction.DateList)));
-            detailsStack.Children.Add(CreateDetailRow("Payer:", transaction.Payer));
-            detailsStack.Children.Add(CreateDetailRow("Revenue Head:", transaction.RevenueHead));
+            detailsStack.Children.Add(CreateDetailRow("Date:", transaction.FormattedDate));
+            detailsStack.Children.Add(CreateDetailRow("Amount:", $"₦{transaction.Amount:N2}"));
+
+            if (!string.IsNullOrWhiteSpace(transaction.Department))
+                detailsStack.Children.Add(CreateDetailRow("Department:", transaction.Department));
+
+            if (!string.IsNullOrWhiteSpace(transaction.PaymentMethod))
+                detailsStack.Children.Add(CreateDetailRow("Method:", transaction.PaymentMethod));
+
+            detailsStack.Children.Add(CreateDetailRow("Status:", transaction.Status ?? "N/A"));
 
             mainStack.Children.Add(detailsStack);
-
             container.Content = mainStack;
             return container;
         }
@@ -404,7 +243,7 @@ namespace YIRSHospital.Views
             {
                 ColumnDefinitions =
                 {
-                    new ColumnDefinition { Width = new GridLength(120) },
+                    new ColumnDefinition { Width = new GridLength(110) },
                     new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }
                 }
             };
@@ -417,87 +256,37 @@ namespace YIRSHospital.Views
                 TextColor = Color.FromHex("#666666")
             };
             Grid.SetColumn(labelView, 0);
-            grid.Children.Add(labelView);
 
             var valueView = new Label
             {
                 Text = value ?? "N/A",
                 FontSize = 12,
-                TextColor = Color.FromHex("#333333"),
-                LineBreakMode = LineBreakMode.TailTruncation
+                TextColor = Color.FromHex("#333333")
             };
             Grid.SetColumn(valueView, 1);
-            grid.Children.Add(valueView);
 
+            grid.Children.Add(labelView);
+            grid.Children.Add(valueView);
             return grid;
         }
 
-        private Color GetStatusColor(string status)
-        {
-            if (status?.ToLower().Contains("successful") == true ||
-                status?.ToLower().Contains("approved") == true)
-            {
-                return Color.FromHex("#28A745");
-            }
-            else if (status?.ToLower().Contains("pending") == true)
-            {
-                return Color.FromHex("#FFC107");
-            }
-            else
-            {
-                return Color.FromHex("#DC3545");
-            }
-        }
-
-        private string GetStatusText(string status)
-        {
-            if (string.IsNullOrWhiteSpace(status))
-                return "Unknown";
-
-            if (status.ToLower().Contains("successful"))
-                return "✓ Successful";
-            if (status.ToLower().Contains("pending"))
-                return "⏳ Pending";
-            if (status.ToLower().Contains("failed"))
-                return "✗ Failed";
-
-            return status;
-        }
-
-        private string FormatDate(string dateString)
-        {
-            if (DateTime.TryParse(dateString, out DateTime date))
-            {
-                return date.ToString("dd MMM yyyy, hh:mm tt");
-            }
-            return dateString;
-        }
-
-        private async void ShowNoDataFoundMessage()
+        private void ShowNoDataFoundMessage()
         {
             ClearResults();
-            await ShowInfoAlert("No Transactions Found",
-                "No transaction records were found for the entered Patient ID. Please verify the ID and try again.");
+            DisplayAlert("No Records", "No transactions found for the specified Patient ID.", "OK");
         }
 
         private async void ShareButton_Clicked(object sender, EventArgs e)
         {
             try
             {
-                var button = sender as Button;
-                if (button != null) button.IsEnabled = false;
-
-                UserDialogs.Instance.ShowLoading("Preparing receipt for sharing...");
-
-                // Capture screenshot using Xamarin.Essentials Screenshot API
+                UserDialogs.Instance.ShowLoading("Preparing receipt...");
                 var screenshot = await Screenshot.CaptureAsync();
 
                 if (screenshot != null)
                 {
                     var stream = await screenshot.OpenReadAsync();
-
-                    // Save to temporary file
-                    var fileName = $"PatientReceipt_{_currentPatientId}_{DateTime.Now:yyyyMMdd_HHmmss}.png";
+                    var fileName = $"Receipt_{_currentPatientId}_{DateTime.Now:yyyyMMdd_HHmmss}.png";
                     var filePath = Path.Combine(FileSystem.CacheDirectory, fileName);
 
                     using (var fileStream = File.Create(filePath))
@@ -505,71 +294,28 @@ namespace YIRSHospital.Views
                         await stream.CopyToAsync(fileStream);
                     }
 
-                    // Share the file
                     await Share.RequestAsync(new ShareFileRequest
                     {
                         Title = "Patient Transaction Receipt",
                         File = new ShareFile(filePath)
                     });
-
-                    UserDialogs.Instance.Toast("Receipt shared successfully!", TimeSpan.FromSeconds(2));
                 }
-                else
-                {
-                    await ShowErrorAlert("Error", "Failed to capture receipt screenshot.");
-                }
-            }
-            catch (FeatureNotSupportedException)
-            {
-                await ShowErrorAlert("Not Supported", "Screenshot feature is not supported on this device.");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Share error: {ex.Message}");
-                await ShowErrorAlert("Error", "Failed to share receipt. Please try again.");
+                Debug.WriteLine($"[Share] Error: {ex.Message}");
             }
             finally
             {
                 UserDialogs.Instance.HideLoading();
-                var button = sender as Button;
-                if (button != null) button.IsEnabled = true;
             }
         }
 
-        private async Task HandleHttpError(HttpResponseMessage response)
+        private async void OnBackNavClicked(object sender, EventArgs e)
         {
-            var statusCode = (int)response.StatusCode;
-            string errorMessage;
-
-            switch (statusCode)
-            {
-                case 400:
-                    errorMessage = "Invalid request. Please check the Patient ID format.";
-                    break;
-                case 401:
-                    errorMessage = "Authentication failed. Please contact support.";
-                    break;
-                case 403:
-                    errorMessage = "Access denied. Please contact support.";
-                    break;
-                case 404:
-                    errorMessage = "Patient records not found or service unavailable.";
-                    break;
-                case 429:
-                    errorMessage = "Too many requests. Please wait a moment and try again.";
-                    break;
-                case 500:
-                    errorMessage = "Server error occurred. Please try again later.";
-                    break;
-                default:
-                    errorMessage = $"Request failed with status code: {statusCode}";
-                    break;
-            }
-
-            await ShowErrorAlert("Service Error", errorMessage);
-            Debug.WriteLine($"HTTP Error: {response.StatusCode} - {response.ReasonPhrase}");
+            try { await Navigation.PopAsync(); } catch { }
         }
-
+    
         private async Task HandleUnexpectedError(Exception ex)
         {
             Debug.WriteLine($"Unexpected error: {ex}");
@@ -624,14 +370,7 @@ namespace YIRSHospital.Views
             });
         }
 
-        private async void OnBackNavClicked(object sender, EventArgs e)
-        {
-            try { await Navigation.PopAsync(); }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"[History] Back navigation error: {ex}");
-            }
-        }
+      
     }
 
 
@@ -651,6 +390,21 @@ namespace YIRSHospital.Views
         [JsonProperty("patientNo")]
         public string PatientNo { get; set; }
 
+        [JsonProperty("hospitalId")]
+        public int HospitalId { get; set; }
+
+        [JsonProperty("hospitalName")]
+        public string HospitalName { get; set; }
+
+        [JsonProperty("hospitalCode")]
+        public string HospitalCode { get; set; }
+
+        [JsonProperty("gender")]
+        public string Gender { get; set; }
+
+        [JsonProperty("phoneNumber")]
+        public string PhoneNumber { get; set; }
+
         [JsonProperty("totalTransactions")]
         public int TotalTransactions { get; set; }
 
@@ -663,6 +417,11 @@ namespace YIRSHospital.Views
 
     public class Transaction
     {
+        // ISO Date from GetHospitalPatientTransactions
+        [JsonProperty("date")]
+        public string Date { get; set; }
+
+        // Date string from GetPatientTransactions (DEFAULT)
         [JsonProperty("datelIst")]
         public string DateList { get; set; }
 
@@ -671,6 +430,12 @@ namespace YIRSHospital.Views
 
         [JsonProperty("serviceTypeName")]
         public string ServiceTypeName { get; set; }
+
+        [JsonProperty("hospitalNo")]
+        public string HospitalNo { get; set; }
+
+        [JsonProperty("department")]
+        public string Department { get; set; }
 
         [JsonProperty("amount")]
         public decimal Amount { get; set; }
@@ -683,5 +448,27 @@ namespace YIRSHospital.Views
 
         [JsonProperty("status")]
         public string Status { get; set; }
+
+        [JsonProperty("paymentMethod")]
+        public string PaymentMethod { get; set; }
+
+        // Helper property to resolve whichever date string is populated
+        [JsonIgnore]
+        public string RawDate => !string.IsNullOrWhiteSpace(Date) ? Date : DateList;
+
+        [JsonIgnore]
+        public string FormattedDate
+        {
+            get
+            {
+                string raw = RawDate;
+                if (string.IsNullOrWhiteSpace(raw)) return "N/A";
+
+                if (DateTime.TryParse(raw, out DateTime parsed))
+                    return parsed.ToString("dd MMM yyyy, hh:mm tt");
+
+                return raw;
+            }
+        }
     }
 }

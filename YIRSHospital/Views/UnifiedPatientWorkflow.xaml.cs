@@ -95,6 +95,7 @@ namespace YIRSHospital.Views
                 }
             }
 
+
             public event PropertyChangedEventHandler PropertyChanged;
             protected virtual void OnPropertyChanged([CallerMemberName] string p = null)
                 => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(p));
@@ -259,7 +260,7 @@ namespace YIRSHospital.Views
             try
             {
                 await LoadDepartmentsAndServices();
-                // Default: cash method selected
+                Hospitalname.Text = HospitalBranding.Current.StoreName;
                 SetPaymentMethod("Cash");
             }
             catch (Exception ex) { HandleError("Failed to load data", ex); }
@@ -931,6 +932,19 @@ namespace YIRSHospital.Views
             if (!ValidatePaymentAmount(total, out string amountError))
             {
                 ShowAmountWarning(amountError);
+                return;
+            }
+
+            var invalidZeroItem = selected.FirstOrDefault(s => !s.RequiresManualAmount && s.amount <= 0);
+            if (invalidZeroItem != null)
+            {
+                await DisplayAlert("Invalid Service", $"The service '{invalidZeroItem.serviceName}' has no valid price set. Payment cannot proceed.", "OK");
+                return;
+            }
+
+            if (total <= 0)
+            {
+                await DisplayAlert("Invalid Amount", "Total amount must be greater than zero to proceed with payment.", "OK");
                 return;
             }
 
