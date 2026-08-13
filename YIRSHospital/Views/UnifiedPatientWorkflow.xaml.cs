@@ -45,7 +45,11 @@ namespace YIRSHospital.Views
             private string _departmentName;
             private bool _initialAmountWasZero;
 
-            public string serviceName { get => _serviceName; set { _serviceName = value; OnPropertyChanged(); } }
+            public string serviceName
+            {
+                get => _serviceName;
+                set { _serviceName = value; OnPropertyChanged(); }
+            }
 
             public decimal amount
             {
@@ -63,26 +67,47 @@ namespace YIRSHospital.Views
             public bool IsSelected
             {
                 get => _isSelected;
-                set { _isSelected = value; OnPropertyChanged(); OnPropertyChanged(nameof(SubTotal)); }
+                set
+                {
+                    _isSelected = value;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(SubTotal));
+                }
             }
-            public int Quantity { get => _quantity; set { _quantity = value; OnPropertyChanged(); OnPropertyChanged(nameof(SubTotal)); } }
-            public string DepartmentName { get => _departmentName; set { _departmentName = value; OnPropertyChanged(); } }
+
+            public int Quantity
+            {
+                get => _quantity;
+                set { _quantity = value; OnPropertyChanged(); OnPropertyChanged(nameof(SubTotal)); }
+            }
+
+            public string DepartmentName
+            {
+                get => _departmentName;
+                set { _departmentName = value; OnPropertyChanged(); }
+            }
+
             public string FormattedAmount => $"₦{amount:N2}";
             public decimal SubTotal => IsSelected ? amount * Quantity : 0;
 
-            // ── NEW: DRF zero-amount manual entry support ──────────────────────────
-
-            /// Call once right after the service is loaded from the API.
+            /// <summary>
+            /// Marks the initial amount loaded from the database.
+            /// </summary>
             public void MarkInitialAmount() => _initialAmountWasZero = (_amount == 0);
 
-            /// True only for a service literally named "DRF" that came back with amount = 0.
+            /// <summary>
+            /// Allows manual amount entry for DRF or any service with 0 base price.
+            /// </summary>
             public bool RequiresManualAmount =>
                 string.Equals(serviceName?.Trim(), "DRF", StringComparison.OrdinalIgnoreCase)
-                && _initialAmountWasZero;
+                || _initialAmountWasZero
+                || amount == 0;
 
             public bool ShowFormattedAmount => !RequiresManualAmount;
 
-            /// Two-way bindable text for the manual amount Entry.
+            /// <summary>
+            /// Two-way bindable property for the manual amount entry.
+            /// </summary>
             public string AmountInputText
             {
                 get => _amount == 0 ? string.Empty : _amount.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
@@ -94,7 +119,6 @@ namespace YIRSHospital.Views
                         amount = 0;
                 }
             }
-
 
             public event PropertyChangedEventHandler PropertyChanged;
             protected virtual void OnPropertyChanged([CallerMemberName] string p = null)
@@ -759,7 +783,7 @@ namespace YIRSHospital.Views
             try
             {
                 _viewModel.IsLoading = true;
-                _viewModel.LoadingMessage = "Loading services…";
+                _viewModel.LoadingMessage = "Loading hospital services…";
 
                 var deptResult = await HospitalApiService.GetDepartmentsAsync(HospitalContext.Code);
 
@@ -771,9 +795,6 @@ namespace YIRSHospital.Views
                     .Select(d => new Department { name = d.name, id = d.id })
                     .ToList();
 
-                if (departments == null || !departments.Any())
-                    throw new InvalidOperationException("No departments found");
-
                 Device.BeginInvokeOnMainThread(() =>
                 {
                     _viewModel.Departments.Clear();
@@ -783,38 +804,42 @@ namespace YIRSHospital.Views
 
                 var allServices = new List<ServiceItem>();
 
+                // Resolve Revenue Head ONCE for this hospital context
+                string firstDeptName = departments.FirstOrDefault()?.name ?? "";
+                string revHead = await HospitalApiService.ResolveRevenueHeadAsync(
+                    HospitalContext.Code,
+                    HospitalContext.DisplayName,
+                    LoginPage.CollectionPoint,
+                    firstDeptName);
+
+                // SINGLE loop per department for the selected hospital
                 foreach (var dept in departments)
                 {
                     try
                     {
-                        var revHead = await HospitalApiService.ResolveRevenueHeadAsync(HospitalContext.Code, HospitalContext.DisplayName, LoginPage.CollectionPoint, departments.First().name);
+                        var catalogue = await HospitalApiService.GetDepartmentServicesAsync(revHead, dept.name);
 
-                        foreach (var innerDept in departments)
+                        if (!catalogue.Success || catalogue.Data == null) continue;
+
+                        foreach (var item in catalogue.Data)
                         {
-                            var catalogue = await HospitalApiService.GetDepartmentServicesAsync(revHead, innerDept.name);
-
-                            if (!catalogue.Success || catalogue.Data == null) continue;
-
-                            foreach (var item in catalogue.Data)
+                            var service = new ServiceItem
                             {
-                                var service = new ServiceItem
-                                {
-                                    serviceName = item.serviceName,
-                                    amount = item.amount,
-                                    DepartmentName = innerDept.name,
-                                    Quantity = 1,
-                                    IsSelected = false
-                                };
-                                service.PropertyChanged += OnServiceItemPropertyChanged;
-                                allServices.Add(service);
-                            }
+                                serviceName = item.serviceName,
+                                amount = item.amount,
+                                DepartmentName = dept.name,
+                                Quantity = 1,
+                                IsSelected = false
+                            };
 
-                            await Task.Delay(100);
+                            service.MarkInitialAmount();
+                            service.PropertyChanged += OnServiceItemPropertyChanged;
+                            allServices.Add(service);
                         }
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"[Services] {dept.name}: {ex.Message}");
+                        Debug.WriteLine($"[Services Load Error] {dept.name}: {ex.Message}");
                     }
                 }
 
@@ -957,12 +982,12 @@ namespace YIRSHospital.Views
             error = null;
             if (amount <= 0)
             {
-                error = "No service amount detected. Please select a service with a valid amount.";
+                error = "No service amount detected. Please enter or select a valid service amount.";
                 return false;
             }
             if (amount < 100)
             {
-                error = $"Amount ₦{amount:N2} is below the minimum. Total must be at least ₦100 before payment can proceed.";
+                error = $"Amount ₦{amount:N2} is below the minimum limit. Total payment must be at least ₦100 before proceeding.";
                 return false;
             }
             return true;

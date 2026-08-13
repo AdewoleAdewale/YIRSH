@@ -687,26 +687,29 @@ CornerRadius="0">
                                                 <!-- DRF with amount 0: let agent type the amount -->
                                                 <StackLayout Orientation="Horizontal" Spacing="6" IsVisible="{Binding RequiresManualAmount}">
                                                     <Label Text="₦"
-               FontSize="13"
-               FontAttributes="Bold"
-               TextColor="{StaticResource Accent}"
-               VerticalOptions="Center"/>
-                                                    <Entry Text="{Binding AmountInputText}"
-               Placeholder="Enter amount"
-               Keyboard="Numeric"
-               FontSize="13"
-               FontAttributes="Bold"
-               TextColor="{StaticResource Accent}"
-               WidthRequest="100"
-               HeightRequest="36"
-               VerticalOptions="Center"/>
+           FontSize="13"
+           FontAttributes="Bold"
+           TextColor="{StaticResource Accent}"
+           VerticalOptions="Center"/>
+
+                                                    <Entry Text="{Binding AmountInputText, Mode=TwoWay}"
+           Placeholder="Enter amount"
+           Keyboard="Numeric"
+           FontSize="13"
+           FontAttributes="Bold"
+           TextColor="{StaticResource Accent}"
+           WidthRequest="110"
+           HeightRequest="38"
+           VerticalOptions="Center"/>
+
                                                     <Label Text="·"
-               FontSize="12"
-               TextColor="{StaticResource TextSecondary}"
-               VerticalOptions="Center"/>
+           FontSize="12"
+           TextColor="{StaticResource TextSecondary}"
+           VerticalOptions="Center"/>
+
                                                     <Label Text="{Binding DepartmentName}"
-               FontSize="11"
-               TextColor="{StaticResource TextSecondary}"/>
+           FontSize="11"
+           TextColor="{StaticResource TextSecondary}"/>
                                                 </StackLayout>
                                             </StackLayout>
                                             <!-- Quantity Picker -->

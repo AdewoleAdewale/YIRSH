@@ -358,62 +358,64 @@
 
                 <CollectionView.ItemTemplate >
                     <DataTemplate >
-                        <yummy:PancakeView BackgroundColor="{StaticResource Card}"
-                                   CornerRadius="16"
-                                           
-                                   BorderColor="{StaticResource Hairline}"
-                                   BorderThickness="1"
-                                   Margin="1,10,1,0"
-                                   Padding="10,5,10,5"
-                                   HasShadow="True"
-                                   Elevation="2">
-                            <Grid ColumnSpacing="15">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="42"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
+                        <StackLayout Spacing="5"    Margin="1,1,1,0">
+                            <yummy:PancakeView BackgroundColor="{StaticResource Card}"
+                 CornerRadius="16"
+                         
+                 BorderColor="{StaticResource Hairline}"
+                 BorderThickness="1" Margin="10,0,10,5"
+                 Padding="10,5,10,5"
+                 HasShadow="True"
+                 Elevation="2">
+                                <Grid ColumnSpacing="15">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="42"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
 
-                                <yummy:PancakeView Grid.Column="0"
-                                           WidthRequest="42"
-                                           HeightRequest="42"
-                                           CornerRadius="14"
-                                           BackgroundColor="{Binding BadgeFill}"
-                                           VerticalOptions="Center">
-                                    <Label Text="{Binding Initials}"
-                                   TextColor="{Binding BadgeTextColor}"
-                                   FontSize="13"
-                                   FontAttributes="Bold"
-                                   HorizontalOptions="Center"
-                                   VerticalOptions="Center"/>
-                                </yummy:PancakeView>
+                                    <yummy:PancakeView Grid.Column="0"
+                         WidthRequest="42"
+                         HeightRequest="42"
+                         CornerRadius="14"
+                         BackgroundColor="{Binding BadgeFill}"
+                         VerticalOptions="Center">
+                                        <Label Text="{Binding Initials}"
+                 TextColor="{Binding BadgeTextColor}"
+                 FontSize="13"
+                 FontAttributes="Bold"
+                 HorizontalOptions="Center"
+                 VerticalOptions="Center"/>
+                                    </yummy:PancakeView>
 
-                                <StackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
-                                    <Label Text="{Binding PrimaryLine}"
-                                   TextColor="{StaticResource TextDark}"
-                                   FontSize="14"
-                                   FontAttributes="Bold"
-                                   LineBreakMode="TailTruncation"/>
-                                    <Label Text="{Binding SecondaryLine}"
-                                   TextColor="{StaticResource TextMuted}"
-                                   FontSize="12"
-                                   LineBreakMode="TailTruncation"/>
-                                </StackLayout>
+                                    <StackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                                        <Label Text="{Binding PrimaryLine}"
+                 TextColor="{StaticResource TextDark}"
+                 FontSize="14"
+                 FontAttributes="Bold"
+                 LineBreakMode="TailTruncation"/>
+                                        <Label Text="{Binding SecondaryLine}"
+                 TextColor="{StaticResource TextMuted}"
+                 FontSize="12"
+                 LineBreakMode="TailTruncation"/>
+                                    </StackLayout>
 
-                                <StackLayout Grid.Column="2" Spacing="2" VerticalOptions="Center" HorizontalOptions="End">
-                                    <Label Text="{Binding FormattedAmount}"
-                                   TextColor="{StaticResource TextDark}"
-                                   FontSize="14"
-                                   FontAttributes="Bold"
-                                   HorizontalTextAlignment="End"/>
-                                    <Label Text="{Binding StatusDisplay}"
-                                   TextColor="{Binding StatusColor}"
-                                   FontSize="11"
-                                   FontAttributes="Bold"
-                                   HorizontalTextAlignment="End"/>
-                                </StackLayout>
-                            </Grid>
-                        </yummy:PancakeView>
+                                    <StackLayout Grid.Column="2" Spacing="2" VerticalOptions="Center" HorizontalOptions="End">
+                                        <Label Text="{Binding FormattedAmount}"
+                 TextColor="{StaticResource TextDark}"
+                 FontSize="14"
+                 FontAttributes="Bold"
+                 HorizontalTextAlignment="End"/>
+                                        <Label Text="{Binding StatusDisplay}"
+                 TextColor="{Binding StatusColor}"
+                 FontSize="11"
+                 FontAttributes="Bold"
+                 HorizontalTextAlignment="End"/>
+                                    </StackLayout>
+                                </Grid>
+                            </yummy:PancakeView>
+                        </StackLayout>
+                  
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
 
