@@ -172,7 +172,7 @@ namespace YIRSHospital.Views
                 TotalTransactionsLabel.Text = result.TotalTransactions.ToString();
                 TotalAmountLabel.Text = $"₦{result.TotalAmount:N2}";
                 GeneratedDate.Text = $"Generated: {DateTime.Now:dd MMM yyyy hh:mm tt}";
-
+                yirs.Text = LoginPage.CollectionPoint;
                 TransactionsStack.Children.Clear();
 
                 foreach (var transaction in result.Transactions.OrderByDescending(t => t.RawDate))

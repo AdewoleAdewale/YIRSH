@@ -253,18 +253,13 @@ CornerRadius="0">
                                    Aspect="AspectFit"
                                    HorizontalOptions="Center"/>
 
-                            <Label Text="YOBE STATE HOSPITAL MANAGEMENT"
+                            <Label 
                                    FontSize="13"
+                                   x:Name="yirs"
                                    FontAttributes="Bold"
                                    TextColor="#004225"
                                    HorizontalTextAlignment="Center"/>
 
-                            <Label Text="YOBE STATE SPECIALIST HOSPITAL"
-                                   FontSize="11"
-                                   TextColor="#666666"
-                                   HorizontalTextAlignment="Center"
-                                   LineBreakMode="WordWrap"
-                                   Margin="0,0,0,10"/>
                         </StackLayout>
                     </StackLayout>
                 </yummy:PancakeView>
