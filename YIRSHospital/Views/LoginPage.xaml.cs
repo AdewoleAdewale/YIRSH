@@ -112,8 +112,6 @@ namespace YIRSHospital.Views
                 LoginActivityIndicator.IsRunning = false;
                 EmailValidationLabel.IsVisible = false;
                 PasswordValidationLabel.IsVisible = false;
-                HospitalSection.Opacity = 1;
-                HospitalValidationLabel.IsVisible = false;
                 HeaderSection.Opacity = 1;
                 FormCard.Opacity = 1;
                 EmailSection.Opacity = 1;
@@ -272,118 +270,54 @@ namespace YIRSHospital.Views
                 };
             }
         }
-        protected override async void OnAppearing()
-        {
-            base.OnAppearing();
-            if (!_hospitalsLoaded) await LoadHospitalsAsync();
-        }
+      
 
-        private async Task LoadHospitalsAsync()
-        {
-            try
-            {
-                HospitalPicker.Title = "Loading hospitals…";
-                HospitalPicker.IsEnabled = false;
+       
 
-                var result = await HospitalApiService.GetHospitalListAsync();
-
-                if (!result.Success || result.Data == null || result.Data.Count == 0)
-                {
-                    HospitalPicker.Title = "Tap to retry";
-                    HospitalPicker.IsEnabled = true;
-                    ShowValidationError(HospitalValidationLabel,
-                        result.ErrorMessage ?? "Could not load hospitals. Pull down to retry.");
-                    return;
-                }
-
-                _hospitals = result.Data;
-                _hospitalsLoaded = true;
-
-                Device.BeginInvokeOnMainThread(() =>
-                {
-                    HospitalPicker.ItemsSource = _hospitals;
-                    HospitalPicker.Title = "Select your hospital";
-                    HospitalPicker.IsEnabled = true;
-
-                    // Re-select whatever they used last time
-                    if (HospitalContext.IsSelected)
-                    {
-                        var previous = _hospitals.FirstOrDefault(h =>
-                            string.Equals(h.code, HospitalContext.Code, StringComparison.OrdinalIgnoreCase));
-                        if (previous != null) HospitalPicker.SelectedItem = previous;
-                    }
-                });
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine("LoadHospitalsAsync: " + ex.Message);
-                HospitalPicker.Title = "Tap to retry";
-                HospitalPicker.IsEnabled = true;
-            }
-        }
-
-        private async void OnHospitalSelected(object sender, EventArgs e)
-        {
-            var selected = HospitalPicker.SelectedItem as HospitalInfo;
-            if (selected == null) return;
-
-            HideValidationError(HospitalValidationLabel);
-
-            // API 2 — confirm the code is actually live before we let them log in
-            var codes = await HospitalApiService.GetHospitalCodeListAsync();
-
-            if (!codes.Success || codes.Data == null)
-            {
-                ShowValidationError(HospitalValidationLabel,
-                    "Could not verify hospital. Check your connection.");
-                return;
-            }
-
-            var confirmed = codes.Data.FirstOrDefault(c =>
-                string.Equals(c, selected.code, StringComparison.OrdinalIgnoreCase));
-
-            if (confirmed == null)
-            {
-                ShowValidationError(HospitalValidationLabel,
-                    selected.displayName + " is not currently available.");
-                return;
-            }
-
-            // Store the *verified* code from API 2, not the one from API 1
-            await HospitalContext.SelectAsync(confirmed, selected.displayName);
-        }
+       
         private async void HandleSuccessfulLogin(LoginResult result)
         {
             var agent = result.LoginResponse.agent;
 
-            ValidUserMail = EmailEntry.Text.Trim();
+            ValidUserMail = agent.email ?? EmailEntry.Text.Trim();
             Passwords = agent.password;
             Name = agent.name;
             category = agent.category;
             Pin = agent.pin;
             Super_Agent = agent.SuperAgent;
             CollectionPoint = agent.collectionPoint;
-            Message = result.LoginResponse.message;
 
+            string cp = agent.collectionPoint ?? string.Empty;
+            string cat = agent.category ?? string.Empty;
 
-            var successMessage = $"Welcome back, {agent.name} — {HospitalContext.Label}";
-            UserDialogs.Instance.Toast(successMessage, TimeSpan.FromSeconds(3));
+            string resolvedCode = "DEFAULT";
+            string resolvedDisplayName = "Yobe State Specialist Hospital";
 
-            if (!string.IsNullOrWhiteSpace(agent.collectionPoint)
-                && !HospitalContext.IsDefaultHospital
-                && agent.collectionPoint.IndexOf(HospitalContext.Code, StringComparison.OrdinalIgnoreCase) < 0
-                && HospitalContext.DisplayName?.IndexOf(agent.collectionPoint, StringComparison.OrdinalIgnoreCase) < 0)
+            // Auto-select hospital based on CollectionPoint response
+            if (cp.IndexOf("Potiskum", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                cp.IndexOf("Portiskum", StringComparison.OrdinalIgnoreCase) >= 0)
             {
-                var proceed = await DisplayAlert("Check hospital",
-                    $"Your account is registered to {agent.collectionPoint}, but you selected {HospitalContext.Label}. Continue?",
-                    "Continue", "Change hospital");
-
-                if (!proceed) { HospitalContext.Clear(); HospitalPicker.SelectedItem = null; return; }
+                resolvedCode = "POTISKUM";
+                resolvedDisplayName = "State Specialist Hospital Potiskum";
+            }
+            else if (cp.IndexOf("Damagum", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                resolvedCode = "DAMAGUM";
+                resolvedDisplayName = "General Hospital Damagum";
+            }
+            else if (cp.IndexOf("Specialist", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                resolvedCode = "DEFAULT";
+                resolvedDisplayName = "Yobe State Specialist Hospital";
             }
 
-            await SessionService.SaveAsync(agent.name, agent.email, agent.category, agent.collectionPoint,HospitalContext.Code, HospitalContext.DisplayName);
+            await HospitalContext.SelectAsync(resolvedCode, resolvedDisplayName);
+            await SessionService.SaveAsync(agent.name, agent.email, agent.category, agent.collectionPoint, resolvedCode, resolvedDisplayName);
 
-            NavigateBasedOnCategory(agent.category);
+            Device.BeginInvokeOnMainThread(() =>
+            {
+                Application.Current.MainPage = new NavigationPage(new Views.Dashboard());
+            });
         }
 
         private void NavigateBasedOnCategory(string agentCategory)
@@ -601,15 +535,7 @@ namespace YIRSHospital.Views
         {
             bool isValid = true;
 
-            if (!HospitalContext.IsSelected)
-            {
-                ShowValidationError(HospitalValidationLabel, "Please select a hospital");
-                isValid = false;
-            }
-            else
-            {
-                HideValidationError(HospitalValidationLabel);
-            }
+         
 
             if (!IsValidEmail(EmailEntry.Text))
             {

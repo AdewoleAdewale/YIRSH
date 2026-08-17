@@ -124,7 +124,12 @@ namespace YIRSHospital.Views
                     cancelText: "Cancel"
                 );
 
-                var apiResult = await HospitalApiService.GetPatientTransactionsAsync(patientId, ct: cancellationToken);
+                // Pass HospitalContext.Code to route correctly to Potiskum, Damagum, or Specialist
+                var apiResult = await HospitalApiService.GetPatientTransactionsAsync(
+                    patientId,
+                    hospitalCode: HospitalContext.Code,
+                    ct: cancellationToken
+                );
 
                 if (apiResult.Success && apiResult.Data != null)
                 {
@@ -145,7 +150,7 @@ namespace YIRSHospital.Views
             }
             catch (OperationCanceledException)
             {
-                // Request was cancelled
+                // Request cancelled
             }
             catch (Exception ex)
             {

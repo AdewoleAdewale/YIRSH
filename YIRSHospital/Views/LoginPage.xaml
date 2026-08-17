@@ -134,52 +134,7 @@
                          downstream — departments, revenue head, receipt
                          logo — is scoped by it.
                          ─────────────────────────────────────────────── -->
-                    <StackLayout x:Name="HospitalSection" Spacing="0">
-
-                        <Label Text="Hospital" Style="{StaticResource FieldLabel}"     TextColor="White"/>
-
-                        <yummy:PancakeView CornerRadius="12"
-                                           HeightRequest="56"
-                                           BackgroundColor="#F7FAF8"
-                                           BorderColor="{StaticResource Brand}"
-                                           BorderThickness="1">
-                            <Grid ColumnDefinitions="4,*,Auto" Padding="12,0,14,0" ColumnSpacing="11">
-
-                                <BoxView Grid.Column="0"
-                                         WidthRequest="4"
-                                         HeightRequest="30"
-                                         CornerRadius="2"
-                                         BackgroundColor="{StaticResource Brand}"
-                                         VerticalOptions="Center"/>
-
-                                <Picker Grid.Column="1"
-                                        x:Name="HospitalPicker"
-                                        Title="Select your hospital"
-                                        AutomationProperties.Name="Hospital selection"
-                                        TitleColor="{StaticResource TextFaint}"
-                                        TextColor="{StaticResource TextDark}"
-                                        FontSize="14"
-                                        BackgroundColor="Transparent"
-                                        VerticalOptions="Center"
-                                        ItemDisplayBinding="{Binding displayName}"
-                                        SelectedIndexChanged="OnHospitalSelected"/>
-
-                                <Label Grid.Column="2"
-                                       Text="▾"
-                                       TextColor="{StaticResource Brand}"
-                                       FontSize="18"
-                                       VerticalOptions="Center"/>
-                            </Grid>
-                        </yummy:PancakeView>
-
-                        <Label Text="Your session and receipts are scoped to this hospital."
-                               FontSize="11"
-                                  TextColor="White"
-                               Margin="2,6,0,0"/>
-
-                        <Label x:Name="HospitalValidationLabel"
-                               Style="{StaticResource ValidationLabel}"/>
-                    </StackLayout>
+                 
 
                     <!-- ── Email ───────────────────────────────────────── -->
                     <StackLayout x:Name="EmailSection" Spacing="0" Margin="0,18,0,0">

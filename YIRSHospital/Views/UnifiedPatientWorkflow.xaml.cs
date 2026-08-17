@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using Acr.UserDialogs;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -650,27 +651,59 @@ namespace YIRSHospital.Views
 
         private async void OnLookupExistingPatient(object sender, EventArgs e)
         {
-            string patientId = ExistingPatientIdEntry.Text?.Trim();
-            if (string.IsNullOrWhiteSpace(patientId))
+            string patientNo = ExistingPatientIdEntry.Text?.Trim();
+            if (string.IsNullOrWhiteSpace(patientNo))
             {
-                await DisplayAlert("Patient ID Required", "Please enter a patient ID.", "OK");
+                await DisplayAlert("Validation", "Please enter a valid patient number.", "OK");
                 return;
             }
 
-            _registeredPatientId = patientId;
-
-            Device.BeginInvokeOnMainThread(() =>
+            try
             {
-                ExistingPatientName.Text = $"Patient ID: {patientId}";
-                ExistingPatientDetails.Text = "Proceeding to service selection…";
-                ExistingPatientInfoCard.IsVisible = true;
-            });
+                _viewModel.IsLoading = true;
+                _viewModel.LoadingMessage = "Verifying patient records…";
 
-            // Pre-fill payment patient ID field
-            if (PatientNo != null)
-                PatientNo.Text = patientId;
+                var result = await HospitalApiService.GetPatientTransactionsAsync(
+                    patientNo,
+                    HospitalContext.Code
+                );
 
-            ActivateServicesSection();
+                _viewModel.IsLoading = false;
+
+                if (result.Success && result.Data != null && result.Data.Code == "00")
+                {
+                    var data = result.Data;
+
+                    // 1. CRITICAL: Store the verified patient ID into workflow state
+                    _registeredPatientId = data.PatientNo ?? patientNo;
+
+                    // 2. Display patient summary card
+                    ExistingPatientName.Text = !string.IsNullOrWhiteSpace(data.PatientName) ? data.PatientName : "N/A";
+                    ExistingPatientIdDisplay.Text = _registeredPatientId;
+                    ExistingPatientTotalPaid.Text = $"₦{data.TotalAmount:N2}";
+                    ExistingPatientInfoCard.IsVisible = true;
+
+                    // 3. Pre-fill the payment patient field
+                    if (RegPatientNo != null)
+                        RegPatientNo.Text = _registeredPatientId;
+
+                    // 4. Unlock & Enable Section 2 (Service Selection)
+                    ActivateServicesSection();
+
+                    UserDialogs.Instance.Toast("Patient verified successfully", TimeSpan.FromSeconds(2));
+                }
+                else
+                {
+                    ExistingPatientInfoCard.IsVisible = false;
+                    LockSection(SectionServices, "Complete verification to unlock");
+                    await DisplayAlert("Verification Failed", result.ErrorMessage ?? "Patient record not found.", "OK");
+                }
+            }
+            catch (Exception ex)
+            {
+                _viewModel.IsLoading = false;
+                await DisplayAlert("Error", $"Verification failed: {ex.Message}", "OK");
+            }
         }
 
         // ─────────────────────────────────────────────────────────
@@ -762,8 +795,8 @@ namespace YIRSHospital.Views
                 PaymentPatientIdLabel.Text = _registeredPatientId ?? "—";
 
                 // Pre-fill patient number
-                if (!string.IsNullOrWhiteSpace(_registeredPatientId) && PatientNo != null)
-                    PatientNo.Text = _registeredPatientId;
+                if (!string.IsNullOrWhiteSpace(_registeredPatientId) && RegPatientNo != null)
+                    RegPatientNo.Text = _registeredPatientId;
 
                 UnlockSection(SectionPayment, "Complete payment below",
                     PaymentStatusBadge, PaymentStatusLabel, "Active ✓", show: true);
@@ -1119,7 +1152,7 @@ namespace YIRSHospital.Views
                             department = deptGroup.Key,
                             email = userEmail,
                             pin = PaymentPinEntry.Text,
-                            hospitalNo = PatientNo?.Text ?? _registeredPatientId ?? "",
+                            hospitalNo = RegPatientNo?.Text ?? _registeredPatientId ?? "",
                             PaymentMethod = _selectedPaymentMethod,
                             services = deptGroup.Select(s => new PaymentServiceItem
                             {
@@ -1423,7 +1456,7 @@ namespace YIRSHospital.Views
 
             var items = new List<ReceiptItem>();
 
-            string patientNo = PatientNo?.Text?.Trim() ?? _registeredPatientId ?? "N/A";
+            string patientNo = RegPatientNo?.Text?.Trim() ?? _registeredPatientId ?? "N/A";
             if (!string.IsNullOrWhiteSpace(patientNo))
                 items.Add(new ReceiptItem { Description = "Patient ID", SubText = patientNo });
 
@@ -1676,7 +1709,7 @@ namespace YIRSHospital.Views
                         department = deptGroup.Key,
                         email = LoginPage.ValidUserMail,
                         pin = PaymentPinEntry?.Text ?? "",
-                        hospitalNo = PatientNo?.Text ?? _registeredPatientId ?? "",
+                        hospitalNo = RegPatientNo?.Text ?? _registeredPatientId ?? "",
                         PaymentMethod = "Card",
                         services = deptGroup.Select(s => new PaymentServiceItem
                         {

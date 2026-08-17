@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Net.Http;
+using System.Security.Authentication;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -459,8 +460,28 @@ namespace YIRSHospital.Services
 
         // ── Plumbing ──────────────────────────────────────────────────────────
 
+        private static readonly Lazy<HttpClient> _insecureClient = new Lazy<HttpClient>(() =>
+        {
+            var handler = new HttpClientHandler
+            {
+                // Bypasses Java SSL/TLS handshake & trust anchor validation errors
+                ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true,
+                SslProtocols = SslProtocols.Tls12 | SslProtocols.Tls11
+            };
+
+            var client = new HttpClient(handler)
+            {
+                Timeout = TimeSpan.FromSeconds(30)
+            };
+            client.DefaultRequestHeaders.Accept.Add(
+                new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+            return client;
+        });
+
+        private static HttpClient Client => _insecureClient.Value;
+
         public static async Task<ApiResult<PatientTransactionResponse>> GetPatientTransactionsAsync(
-            string patientNo, string hospitalCode = null, int? hospitalId = null, CancellationToken ct = default(CancellationToken))
+            string patientNo, string hospitalCode = null, int? hospitalId = null, CancellationToken ct = default)
         {
             if (string.IsNullOrWhiteSpace(patientNo))
                 return ApiResult<PatientTransactionResponse>.Fail("Patient Number is required.");
@@ -471,22 +492,53 @@ namespace YIRSHospital.Services
             string url;
             if (isDefault)
             {
-                // Endpoint for Yobe State Specialist Hospital (DEFAULT)
-                url = AGENTS + "/GetPatientTransactions?patientId=" + Uri.EscapeDataString(patientNo);
+                // Specialist Hospital (DEFAULT) uses patientId
+                url = $"{AGENTS}/GetPatientTransactions?patientId={Uri.EscapeDataString(patientNo)}";
             }
             else
             {
-                // Endpoint for specific hospitals (DAMAGUM, POTISKUM, etc.)
-                url = AGENTS + "/GetHospitalPatientTransactions?patientNo=" + Uri.EscapeDataString(patientNo);
-                if (hospitalId.HasValue && hospitalId.Value > 0)
-                    url += "&hospitalId=" + hospitalId.Value;
-                else if (!string.IsNullOrWhiteSpace(code))
-                    url += "&hospitalCode=" + Uri.EscapeDataString(code);
+                // Specific hospitals (POTISKUM, DAMAGUM, etc.)
+                int resolvedId = hospitalId ?? ResolveHospitalId(code);
+                url = $"{AGENTS}/GetHospitalPatientTransactions?patientNo={Uri.EscapeDataString(patientNo)}&hospitalId={resolvedId}&hospitalCode={Uri.EscapeDataString(code)}";
             }
 
-            Debug.WriteLine("[HospitalApi] GetPatientTransactions -> GET " + url);
-            return await GetJsonAsync<PatientTransactionResponse>(url, ct);
+            Debug.WriteLine($"[HospitalApi] GetPatientTransactions -> GET {url}");
+
+            try
+            {
+                using (var response = await Client.GetAsync(url, ct))
+                {
+                    var json = await response.Content.ReadAsStringAsync();
+                    if (!response.IsSuccessStatusCode)
+                        return ApiResult<PatientTransactionResponse>.Fail($"Server error ({response.StatusCode})");
+
+                    var data = JsonConvert.DeserializeObject<PatientTransactionResponse>(json);
+                    return ApiResult<PatientTransactionResponse>.Ok(data);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[HospitalApi] SSL/Network Exception: {ex.Message}");
+                return ApiResult<PatientTransactionResponse>.Fail(ex.Message);
+            }
         }
+
+        private static int ResolveHospitalId(string code)
+        {
+            if (string.IsNullOrWhiteSpace(code)) return 1;
+
+            string clean = code.Trim().ToUpperInvariant();
+
+            if (clean.Contains("POTISKUM") || clean.Contains("PORTISKUM"))
+                return 2;
+
+            if (clean.Contains("DAMAGUM") || clean.Contains("DAMAGUN"))
+                return 1;
+
+            return 1;
+        }
+
+
         private static async Task<ApiResult<T>> GetJsonAsync<T>(string url, CancellationToken ct)
         {
             try
