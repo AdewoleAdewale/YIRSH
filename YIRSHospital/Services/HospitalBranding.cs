@@ -34,7 +34,7 @@ namespace YIRSHospital.Services
 
         private static readonly HospitalBranding Default = new HospitalBranding(
             "DEFAULT",
-            "YOBE STATE HOSPITALS MANAGEMENT BOARD",
+            "YOBE STATE SPECIALIST HOSPITALS ",
             "YOBE HEALTH",
             "Logo.png",
             "Contact: +234 907 070 1616");
@@ -53,7 +53,7 @@ namespace YIRSHospital.Services
 
                 { "POTISKUM", new HospitalBranding(
                     "POTISKUM",
-                    "STATE SPECIALIST HOSPITAL POTISKUM",
+                    " SPECIALIST HOSPITAL POTISKUM",
                     "POTISKUM",
                     "YSSHP.png",
                     "Contact: +234 907 070 1616") }

@@ -254,7 +254,8 @@ namespace YIRSHospital.Views
         // Workflow state
         private PaymentResultData _currentPaymentResult;
         private string _selectedPaymentMethod = "Cash";
-        private string _registeredPatientId;       // set after successful registration
+        private string _registeredPatientId;
+        private string _registeredPatientname;   // set after successful registration
         private bool _isNewPatientMode = true;      // true = Register first; false = Existing patient
         private CancellationTokenSource _cardPaymentCts;
 
@@ -676,6 +677,7 @@ namespace YIRSHospital.Views
 
                     // 1. CRITICAL: Store the verified patient ID into workflow state
                     _registeredPatientId = data.PatientNo ?? patientNo;
+                    _registeredPatientname = data.PatientName ?? "N/A";
 
                     // 2. Display patient summary card
                     ExistingPatientName.Text = !string.IsNullOrWhiteSpace(data.PatientName) ? data.PatientName : "N/A";
@@ -1457,9 +1459,10 @@ namespace YIRSHospital.Views
             var items = new List<ReceiptItem>();
 
             string patientNo = RegPatientNo?.Text?.Trim() ?? _registeredPatientId ?? "N/A";
+            string patientname = _registeredPatientname ?? "N/A";
             if (!string.IsNullOrWhiteSpace(patientNo))
-                items.Add(new ReceiptItem { Description = "Patient ID", SubText = patientNo });
-
+            items.Add(new ReceiptItem { Description = "Patient ID", SubText = patientNo });
+            items.Add(new ReceiptItem { Description = "Patient Name", SubText = patientname });
             items.Add(new ReceiptItem { Description = "Payment Method", SubText = _currentPaymentResult?.PaymentMethod ?? _selectedPaymentMethod ?? "N/A" });
             items.Add(new ReceiptItem { Description = "Services", SubText = string.Empty });
 

@@ -885,7 +885,7 @@ namespace YIRSHospital.Services
 
     public sealed class ReceiptData
     {
-        public string StoreName { get; set; } = "YOBE STATE HOSPITAL";
+        public string StoreName { get; set; } = "YOBE STATE SPECIALIST HOSPITAL";
         public string StoreSubTitle { get; set; }
         public string StoreAddress { get; set; } = "Yobe State, Nigeria";
         public string StorePhone { get; set; } = "Contact: +234 907 070 1616";
