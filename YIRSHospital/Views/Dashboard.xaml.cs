@@ -138,30 +138,40 @@ namespace YIRSHospital.Views
                     return;
                 }
 
-                if (!HospitalContext.IsSelected)
-                {
-                    _vm.SetEmptyState("No hospital selected", "Please log in again to select a hospital.");
-                    return;
-                }
-
                 var endDate = DateTime.Now;
                 var startDate = endDate.Date.AddDays(-ACTIVITY_WINDOW_DAYS);
 
-                var result = await HospitalApiService.GetPaymentHistoryAsync(
-                    LoginPage.ValidUserMail,
-                    startDate,
-                    endDate,
-                    HospitalContext.Code,
-                    CancellationToken.None);
+                // Formatting dates exactly as expected by the TaskPayers endpoint (MM-dd-yyyy)
+                string dateFormat = "MM-dd-yyyy";
+                string email = Uri.EscapeDataString(LoginPage.ValidUserMail ?? string.Empty);
+                string from = Uri.EscapeDataString(startDate.ToString(dateFormat, CultureInfo.InvariantCulture));
+                string to = Uri.EscapeDataString(endDate.ToString(dateFormat, CultureInfo.InvariantCulture));
 
-                if (!result.Success)
+                // Using the exact working API from your history page
+                string url = $"https://yobe.osoftpay.net/api/TaskPayers/gettransaction?Email={email}&SearchFrom={from}&SearchTo={to}";
+
+                // Routing through ApiClient.Shared to utilize the SSL/TLS bypass
+                using (var response = await ApiClient.Shared.GetAsync(url, CancellationToken.None))
                 {
-                    _lastFetchError = new Exception(result.ErrorMessage ?? "Could not load payment history.");
-                    ApplyFetchFailureState();
-                    return;
-                }
+                    var body = await response.Content.ReadAsStringAsync();
 
-                ApplyTransactions(result.Data);
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        _vm.SetEmptyState("Couldn't load activity", "Server error. Pull down to try again.");
+                        return;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(body) || !body.TrimStart().StartsWith("["))
+                    {
+                        ApplyTransactions(new List<RecentTransaction>());
+                        return;
+                    }
+
+                    var settings = new JsonSerializerSettings { DateParseHandling = DateParseHandling.None };
+                    var parsed = JsonConvert.DeserializeObject<List<RecentTransaction>>(body, settings) ?? new List<RecentTransaction>();
+
+                    ApplyTransactions(parsed);
+                }
             }
             catch (Exception ex)
             {
@@ -182,33 +192,30 @@ namespace YIRSHospital.Views
             {
                 _vm.SetEmptyState(
                     "Secure connection failed",
-                    "This device could not verify the server's certificate. "
-                    + "Update the app, then contact support if it persists.");
+                    "This device could not verify the server's certificate.");
                 return;
             }
             _vm.SetEmptyState("Couldn't load activity", "Pull down to try again.");
         }
 
-        private void ApplyTransactions(List<HospitalPaymentHistoryItem> items)
+        private void ApplyTransactions(List<RecentTransaction> all)
         {
-            var source = items ?? new List<HospitalPaymentHistoryItem>();
             var today = DateTime.Now.Date;
 
-            var all = source
-                .Select(i => RecentTransaction.FromApi(i, LoginPage.Name))
+            // Sort by parsed date
+            var sorted = all
                 .OrderByDescending(t => t.ParsedDate ?? DateTime.MinValue)
-                .ThenByDescending(t => t.transactionId)
                 .ToList();
 
-            var todays = all.Where(t => t.ParsedDate.HasValue && t.ParsedDate.Value.Date == today).ToList();
+            var todays = sorted.Where(t => t.ParsedDate.HasValue && t.ParsedDate.Value.Date == today).ToList();
 
             var collectedToday = todays.Sum(t => Math.Abs(t.amount));
-            var weekTotal = all.Sum(t => Math.Abs(t.amount));
+            var weekTotal = sorted.Sum(t => Math.Abs(t.amount));
             var count = todays.Count;
             var average = count > 0 ? collectedToday / count : 0m;
 
             var latest = todays.FirstOrDefault();
-            var rows = all.Take(ACTIVITY_ROW_LIMIT).ToList();
+            var rows = sorted.Take(ACTIVITY_ROW_LIMIT).ToList();
 
             Device.BeginInvokeOnMainThread(() =>
             {
@@ -255,98 +262,36 @@ namespace YIRSHospital.Views
         #region Models
         public class RecentTransaction
         {
-            public string datelIst { get; set; }
             public string transactionId { get; set; }
-            public string serviceTypeName { get; set; }
-            public string HospitalNo { get; set; }
+            public string serviceName { get; set; }
+            public string payerId { get; set; }
             public decimal amount { get; set; }
-            public string payer { get; set; }
-            public string agentName { get; set; }
-            public string revenueHead { get; set; }
-            public string remitaServiceName { get; set; }
-            public string status { get; set; }
+            public string dateRecorded { get; set; }
 
-            public DateTime? ParsedDate { get; set; }
-
-            private static readonly string[] DateFormats = {
-                "yyyy-MM-ddTHH:mm:ss.fffffff", "yyyy-MM-ddTHH:mm:ss.ffffff",
-                "yyyy-MM-ddTHH:mm:ss.fff", "yyyy-MM-ddTHH:mm:ss",
-                "MM/dd/yyyy hh:mm tt", "dd/MM/yyyy hh:mm tt", "dd/MM/yy hh:mm tt"
-            };
-
-            public static RecentTransaction FromApi(HospitalPaymentHistoryItem item, string agentName)
-            {
-                var parsedAmount = 0m;
-
-                if (item.AmountValue > 0)
-                {
-                    parsedAmount = item.AmountValue;
-                }
-                else if (!string.IsNullOrWhiteSpace(item.amount))
-                {
-                    decimal.TryParse(
-                        item.amount,
-                        NumberStyles.Any,
-                        CultureInfo.InvariantCulture,
-                        out parsedAmount);
-                }
-
-                var trans = new RecentTransaction
-                {
-                    transactionId = string.IsNullOrWhiteSpace(item.transactionId) ? "N/A" : item.transactionId,
-                    serviceTypeName = string.IsNullOrWhiteSpace(item.serviceName) ? "Unknown Service" : item.serviceName,
-                    remitaServiceName = string.IsNullOrWhiteSpace(item.department) ? "N/A" : item.department,
-                    revenueHead = HospitalContext.Label,
-                    agentName = string.IsNullOrWhiteSpace(agentName) ? "N/A" : agentName,
-                    amount = parsedAmount,
-                    HospitalNo = "—",
-                    payer = null,
-                    status = "Paid"
-                };
-
-                var rawDate = item.RecordedAt?.ToString("O") ?? item.dateRecorded;
-                trans.datelIst = rawDate;
-
-                DateTime parsedDate;
-                if (DateTime.TryParseExact(
-                    rawDate?.Trim(),
-                    DateFormats,
-                    CultureInfo.InvariantCulture,
-                    DateTimeStyles.None,
-                    out parsedDate))
-                {
-                    trans.ParsedDate = parsedDate;
-                }
-                else if (DateTime.TryParse(rawDate, out parsedDate))
-                {
-                    trans.ParsedDate = parsedDate;
-                }
-
-                return trans;
-            }
-            public string PrimaryLine => !string.IsNullOrWhiteSpace(payer) ? payer.Trim() : (string.IsNullOrWhiteSpace(serviceTypeName) ? "Payment" : serviceTypeName.Trim());
-
-            public string SecondaryLine
-            {
-                get
-                {
-                    var time = ParsedDate.HasValue
-                        ? (ParsedDate.Value.Date == DateTime.Now.Date
-                            ? ParsedDate.Value.ToString("h:mm tt", CultureInfo.InvariantCulture)
-                            : ParsedDate.Value.ToString("MMM d, h:mm tt", CultureInfo.InvariantCulture))
-                        : (datelIst ?? string.Empty).Trim();
-
-                    var dept = string.IsNullOrWhiteSpace(remitaServiceName) || remitaServiceName == "N/A" ? null : remitaServiceName.Trim();
-                    return dept == null ? time : (time.Length == 0 ? dept : dept + " · " + time);
-                }
-            }
-
-            public string FormattedAmount => "₦" + Math.Abs(amount).ToString("N0", CultureInfo.InvariantCulture);
+            public string PrimaryLine => !string.IsNullOrWhiteSpace(payerId) ? payerId.Trim() : (string.IsNullOrWhiteSpace(serviceName) ? "Payment" : serviceName.Trim());
+            public string SecondaryLine => dateRecorded ?? string.Empty;
+            public string FormattedAmount => $"₦{Math.Abs(amount):N0}";
             public string Initials => PrimaryLine.Length >= 2 ? PrimaryLine.Substring(0, 2).ToUpperInvariant() : "AG";
             public string StatusDisplay => "Paid";
             public Color StatusColor => Color.FromHex("#0F6E56");
             public Color BadgeFill => Color.FromHex("#E1F5EE");
             public Color BadgeTextColor => Color.FromHex("#0F6E56");
+
+            public DateTime? ParsedDate
+            {
+                get
+                {
+                    // Supports exact formatting like "06/08/26 03:52 PM"
+                    string[] formats = { "MM/dd/yy hh:mm tt", "dd/MM/yy hh:mm tt", "MM/dd/yyyy hh:mm tt", "dd/MM/yyyy hh:mm tt" };
+                    if (DateTime.TryParseExact(dateRecorded, formats, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime exactDate))
+                        return exactDate;
+
+                    if (DateTime.TryParse(dateRecorded, out DateTime looseParsed))
+                        return looseParsed;
+
+                    return null;
+                }
+            }
         }
         #endregion
 

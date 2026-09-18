@@ -4,15 +4,16 @@
              xmlns:yummy="clr-namespace:Xamarin.Forms.PancakeView;assembly=Xamarin.Forms.PancakeView"
              xmlns:renderers="clr-namespace:YIRSHospital.Services"
              x:Class="YIRSHospital.Views.ConfirmPatientPayment"
-             BackgroundColor="#F4F6F8"
-             Title="Confirm Payment">
+             BackgroundColor="#F4F6F8">
 
     <ContentPage.Resources>
         <ResourceDictionary>
-
-            <Color x:Key="TextPrimary">#16211C</Color>
-            <Color x:Key="TextSecondary">#6B7770</Color>
-
+            <Color x:Key="Primary">#004225</Color>
+            <Color x:Key="PrimaryLight">#006B3C</Color>
+            <Color x:Key="Accent">#FF6B35</Color>
+            <Color x:Key="TextPrimary">#1A202C</Color>
+            <Color x:Key="TextSecondary">#718096</Color>
+            <Color x:Key="Border">#E2E8F0</Color>
         </ResourceDictionary>
     </ContentPage.Resources>
 
@@ -29,7 +30,7 @@
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                             <yummy:PancakeView Grid.Column="0" BorderColor="White" BorderThickness="1" CornerRadius="10" BackgroundColor="#F9FAFB">
                                 <renderers:BorderlessEntry x:Name="SearchPatientEntry"
-                                                            Placeholder="Enter Patient Number"
+                                                            Placeholder="Enter Patient Number" FontSize="12"
                                                             Margin="12,0"
                                                             TextColor="{StaticResource TextPrimary}"
                                                             ReturnType="Search"
@@ -61,7 +62,7 @@
                 <!-- ───────────── IDLE / EMPTY STATE ───────────── -->
                 <yummy:PancakeView x:Name="IdleStateCard" BackgroundColor="White" CornerRadius="12" Padding="28" HasShadow="False">
                     <StackLayout Spacing="8" HorizontalOptions="Center">
-                        <Label Text="🔍" FontSize="34" HorizontalOptions="Center"/>
+                        <Label Text="🔍" FontSize="24" HorizontalOptions="Center"/>
                         <Label Text="No search yet" FontSize="15" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" HorizontalOptions="Center"/>
                         <Label Text="Enter a patient number above to verify their payment status." FontSize="12" TextColor="{StaticResource TextSecondary}" HorizontalOptions="Center" HorizontalTextAlignment="Center"/>
                     </StackLayout>

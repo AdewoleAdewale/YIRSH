@@ -2,16 +2,17 @@
 <ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml" xmlns:yummy="clr-namespace:Xamarin.Forms.PancakeView;assembly=Xamarin.Forms.PancakeView" xmlns:renderers="clr-namespace:YIRSHospital.Services"
              x:Class="YIRSHospital.Views.ProcessPatientBill"
-             BackgroundColor="#F4F6F8"
-             Title="Process Pending Bill">
+             BackgroundColor="#F4F6F8">
 
 
     <ContentPage.Resources>
         <ResourceDictionary>
-            
-            <Color x:Key="TextPrimary">#16211C</Color>
-            <Color x:Key="TextSecondary">#6B7770</Color>
-
+            <Color x:Key="Primary">#004225</Color>
+            <Color x:Key="PrimaryLight">#006B3C</Color>
+            <Color x:Key="Accent">#FF6B35</Color>
+            <Color x:Key="TextPrimary">#1A202C</Color>
+            <Color x:Key="TextSecondary">#718096</Color>
+            <Color x:Key="Border">#E2E8F0</Color>
         </ResourceDictionary>
     </ContentPage.Resources>
 
@@ -23,7 +24,7 @@
                 <yummy:PancakeView BackgroundColor="White" CornerRadius="14" Padding="16" HasShadow="True">
                     <StackLayout Spacing="12">
                         <StackLayout Spacing="2">
-                            <Label Text="Fetch Pending Bill" FontSize="16" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}"/>
+                            <Label Text="Fetch Pending Bill" FontSize="12" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}"/>
                             <Label Text="Enter patient number to retrieve cashier bill" FontSize="12" TextColor="{StaticResource TextSecondary}"/>
                         </StackLayout>
 
@@ -105,7 +106,7 @@
                             </StackLayout>
                         </Grid>
 
-                        <BoxView HeightRequest="1" BackgroundColor="{StaticResource Border}"/>
+                        <BoxView HeightRequest="1" BackgroundColor="WhiteSmoke"/>
 
                         <!-- Itemized Services -->
                         <Grid ColumnDefinitions="*,Auto">
@@ -154,17 +155,17 @@
 
                         <!-- Reference Input (For Transfer/Card) -->
                         <StackLayout x:Name="ReferenceSection" Spacing="4" IsVisible="False">
-                            <Label Text="Payment Reference" Style="{StaticResource FieldLabel}"/>
-                            <yummy:PancakeView BorderColor="{StaticResource Border}" BorderThickness="1" CornerRadius="10" BackgroundColor="#F9FAFB" HeightRequest="44">
+                            <Label Text="Payment Reference" />
+                            <yummy:PancakeView BorderColor="WhiteSmoke" BorderThickness="1" CornerRadius="10" BackgroundColor="#F9FAFB" HeightRequest="44">
                                 <renderers:BorderlessEntry x:Name="ReferenceEntry" Placeholder="Bank transaction reference" Margin="12,0" VerticalOptions="Center" TextColor="{StaticResource TextPrimary}"/>
                             </yummy:PancakeView>
                         </StackLayout>
 
                         <!-- Agent PIN -->
                         <StackLayout Spacing="4">
-                            <Label Text="Wallet PIN" Style="{StaticResource FieldLabel}"/>
+                            <Label Text="Wallet PIN" />
                             <Grid ColumnDefinitions="*,Auto">
-                                <yummy:PancakeView Grid.Column="0" BorderColor="{StaticResource Border}" BorderThickness="1" CornerRadius="10" BackgroundColor="#F9FAFB" HeightRequest="44">
+                                <yummy:PancakeView Grid.Column="0" BorderColor="WhiteSmoke" BorderThickness="1" CornerRadius="10" BackgroundColor="#F9FAFB" HeightRequest="44">
                                     <renderers:BorderlessEntry x:Name="PinEntry" Placeholder="Enter 4-digit PIN" IsPassword="True" MaxLength="4" Keyboard="Numeric" Margin="12,0" VerticalOptions="Center" TextColor="{StaticResource TextPrimary}"/>
                                 </yummy:PancakeView>
                                 <Button Grid.Column="1" x:Name="TogglePinVisibilityButton" Text="👁" WidthRequest="44" HeightRequest="44" Margin="8,0,0,0" BackgroundColor="#E2E8F0" CornerRadius="10" Clicked="OnTogglePinVisibilityClicked"/>
@@ -172,7 +173,7 @@
                         </StackLayout>
 
                         <!-- Process Payment Action -->
-                        <Button x:Name="CompletePaymentButton" Text="COMPLETE PAYMENT" BackgroundColor="{StaticResource Accent}" TextColor="White" FontAttributes="Bold" CornerRadius="10" HeightRequest="50" Margin="0,8,0,0" Clicked="OnProcessPaymentClicked"/>
+                        <Button x:Name="CompletePaymentButton" Text="COMPLETE PAYMENT" BackgroundColor="OrangeRed" TextColor="White" FontAttributes="Bold" CornerRadius="10" HeightRequest="50" Margin="0,8,0,0" Clicked="OnProcessPaymentClicked"/>
                     </StackLayout>
                 </yummy:PancakeView>
 

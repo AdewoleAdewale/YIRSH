@@ -1,16 +1,18 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:yummy="clr-namespace:Xamarin.Forms.PancakeView;assembly=Xamarin.Forms.PancakeView" xmlns:renderers="clr-namespace:YIRSHospital.Services"
+             xmlns:yummy="clr-namespace:Xamarin.Forms.PancakeView;assembly=Xamarin.Forms.PancakeView"
+             xmlns:renderers="clr-namespace:YIRSHospital.Services"
              x:Class="YIRSHospital.Views.RaisePatientBill"
-             BackgroundColor="#F4F6F8"
-             Title="Raise Patient Bill">
+             BackgroundColor="#F4F6F8">
     <ContentPage.Resources>
         <ResourceDictionary>
-
-            <Color x:Key="TextPrimary">#16211C</Color>
-            <Color x:Key="TextSecondary">#6B7770</Color>
-
+            <Color x:Key="Primary">#004225</Color>
+            <Color x:Key="PrimaryLight">#006B3C</Color>
+            <Color x:Key="Accent">#FF6B35</Color>
+            <Color x:Key="TextPrimary">#1A202C</Color>
+            <Color x:Key="TextSecondary">#718096</Color>
+            <Color x:Key="Border">#E2E8F0</Color>
         </ResourceDictionary>
     </ContentPage.Resources>
     <RefreshView x:Name="PageRefreshView" Refreshing="OnRefreshRequested">
@@ -78,15 +80,15 @@
                             <Label Text="Patient Details" FontSize="16" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}"/>
 
                             <StackLayout Spacing="4">
-                                <Label Text="Patient Number" Style="{StaticResource FieldLabel}"/>
+                                <Label Text="Patient Number" />
                                 <yummy:PancakeView BorderColor="{StaticResource Border}" BorderThickness="1" CornerRadius="10" BackgroundColor="#F9FAFB" HeightRequest="48">
                                     <renderers:BorderlessEntry x:Name="PatientNoEntry" Placeholder="e.g. 0584" Keyboard="Text" Margin="12,0" TextColor="{StaticResource TextPrimary}"/>
                                 </yummy:PancakeView>
                             </StackLayout>
 
                             <StackLayout Spacing="4">
-                                <Label Text="Urgency / Notes" Style="{StaticResource FieldLabel}"/>
-                                <yummy:PancakeView BorderColor="{StaticResource Border}" BorderThickness="1" CornerRadius="10" BackgroundColor="#F9FAFB" HeightRequest="48">
+                                <Label Text="Urgency / Notes" />
+                                <yummy:PancakeView BorderColor="WhiteSmoke" BorderThickness="1" CornerRadius="10" BackgroundColor="#F9FAFB" HeightRequest="48">
                                     <renderers:BorderlessEntry x:Name="NotesEntry" Placeholder="Optional notes" Keyboard="Text" Margin="12,0" TextColor="{StaticResource TextPrimary}"/>
                                 </yummy:PancakeView>
                             </StackLayout>
@@ -101,11 +103,11 @@
                                     <Label Text="Select Services" FontSize="16" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}"/>
                                     <Label x:Name="SelectedCountLabel" Text="0 selected" FontSize="11" TextColor="{StaticResource TextSecondary}"/>
                                 </StackLayout>
-                                <Label Grid.Column="1" x:Name="TotalAmountLabel" Text="₦0.00" FontSize="16" FontAttributes="Bold" TextColor="{StaticResource Accent}" VerticalOptions="Center"/>
+                                <Label Grid.Column="1" x:Name="TotalAmountLabel" Text="₦0.00" FontSize="16" FontAttributes="Bold" TextColor="OrangeRed" VerticalOptions="Center"/>
                             </Grid>
 
                             <!-- Search / filter -->
-                            <yummy:PancakeView BorderColor="{StaticResource Border}" BorderThickness="1" CornerRadius="10" BackgroundColor="#F9FAFB" HeightRequest="42">
+                            <yummy:PancakeView BorderColor="WhiteSmoke" BorderThickness="1" CornerRadius="10" BackgroundColor="#F9FAFB" HeightRequest="42">
                                 <renderers:BorderlessEntry x:Name="ServiceFilterEntry" Placeholder="Search services…" TextChanged="OnServiceFilterTextChanged" Margin="12,0" TextColor="{StaticResource TextPrimary}"/>
                             </yummy:PancakeView>
 
