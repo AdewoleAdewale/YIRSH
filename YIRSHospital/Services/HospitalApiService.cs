@@ -754,8 +754,8 @@ namespace YIRSHospital.Services
             foreach (var candidate in candidates.Distinct(StringComparer.OrdinalIgnoreCase))
             {
                 var probe = await GetDepartmentServicesAsync(candidate, probeDepartment, ct);
-                if (probe.Success && probe.Data != null && probe.Data.Count > 0)
-                {
+                if (probe.Success && probe.Data != null && probe.Data.Services.Count > 0)
+                    {
                     Debug.WriteLine("[HospitalApi] RevHead for " + hospitalCode + " resolved to '" + candidate + "'.");
                     HospitalContext.CacheRevenueHead(candidate);
                     return candidate;

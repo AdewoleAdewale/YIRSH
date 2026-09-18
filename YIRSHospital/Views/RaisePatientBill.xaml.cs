@@ -36,7 +36,8 @@ namespace YIRSHospital.Views
 
             UserDialogs.Instance.HideLoading();
 
-            if (result.Success && result.Data?.Code == "00")
+            // Fix applied here: target result.Data.Code and result.Data.Services
+            if (result.Success && result.Data?.Code == "00" && result.Data.Services != null)
             {
                 _availableServices = new ObservableCollection<DepartmentServiceItem>(result.Data.Services);
                 ServicesList.ItemsSource = _availableServices;
