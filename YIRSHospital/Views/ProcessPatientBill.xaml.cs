@@ -230,14 +230,16 @@ namespace YIRSHospital.Views
 
         private void SetMethodButtonState(Button active, Button inactive1, Button inactive2)
         {
-            active.BackgroundColor = (Color)Application.Current.Resources["Primary"];
+            active.BackgroundColor = (Color)Resources["Primary"];
             active.TextColor = Color.White;
 
+            var inactiveColor = (Color)Resources["TextPrimary"];
+
             inactive1.BackgroundColor = Color.FromHex("#E2E8F0");
-            inactive1.TextColor = (Color)Application.Current.Resources["TextPrimary"];
+            inactive1.TextColor = inactiveColor;
 
             inactive2.BackgroundColor = Color.FromHex("#E2E8F0");
-            inactive2.TextColor = (Color)Application.Current.Resources["TextPrimary"];
+            inactive2.TextColor = inactiveColor;
         }
 
         private void OnTogglePinVisibilityClicked(object sender, EventArgs e)

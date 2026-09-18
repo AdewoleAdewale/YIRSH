@@ -156,9 +156,9 @@
                         <!-- ── Payment Method ── -->
                         <Label Text="Select Payment Method" FontSize="14" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" Margin="0,6,0,0"/>
                         <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
-                            <Button x:Name="CashBtn" Grid.Column="0" Text="💵 Cash" BackgroundColor="{StaticResource Primary}" TextColor="White" CornerRadius="8" HeightRequest="40" Clicked="OnCashSelected"/>
-                            <Button x:Name="TransferBtn" Grid.Column="1" Text="🏦 Transfer" BackgroundColor="#E2E8F0" TextColor="{StaticResource TextPrimary}" CornerRadius="8" HeightRequest="40" Clicked="OnTransferSelected"/>
-                            <Button x:Name="CardBtn" Grid.Column="2" Text="💳 Card" BackgroundColor="#E2E8F0" TextColor="{StaticResource TextPrimary}" CornerRadius="8" HeightRequest="40" Clicked="OnCardSelected"/>
+                            <Button x:Name="CashBtn" Grid.Column="0" Text=" Cash" BackgroundColor="{StaticResource Primary}" TextColor="White" CornerRadius="8" HeightRequest="40" Clicked="OnCashSelected"/>
+                            <Button x:Name="TransferBtn" Grid.Column="1" Text="Transfer" BackgroundColor="#E2E8F0" TextColor="{StaticResource TextPrimary}" CornerRadius="8" HeightRequest="40" Clicked="OnTransferSelected"/>
+                            <Button x:Name="CardBtn" Grid.Column="2" Text="Card" BackgroundColor="#E2E8F0" TextColor="{StaticResource TextPrimary}" CornerRadius="8" HeightRequest="40" Clicked="OnCardSelected"/>
                         </Grid>
 
                         <!-- Reference Input (For Transfer/Card) -->
@@ -174,7 +174,7 @@
                             <Label Text="Wallet PIN" />
                             <Grid ColumnDefinitions="*,Auto">
                                 <yummy:PancakeView Grid.Column="0" BorderColor="WhiteSmoke" BorderThickness="1" CornerRadius="10" BackgroundColor="#F9FAFB" HeightRequest="44">
-                                    <renderers:BorderlessEntry x:Name="PinEntry" Placeholder="Enter 4-digit PIN" IsPassword="True" MaxLength="4" Keyboard="Numeric" Margin="12,0" VerticalOptions="Center" TextColor="{StaticResource TextPrimary}"/>
+                                    <renderers:BorderlessEntry x:Name="PinEntry" Placeholder="Enter 4-digit PIN" IsPassword="True" MaxLength="4" FontSize="12" Keyboard="Numeric" Margin="12,0" VerticalOptions="Center" TextColor="{StaticResource TextPrimary}"/>
                                 </yummy:PancakeView>
                                 <Button Grid.Column="1" x:Name="TogglePinVisibilityButton" Text="👁" WidthRequest="44" HeightRequest="44" Margin="8,0,0,0" BackgroundColor="#E2E8F0" CornerRadius="10" Clicked="OnTogglePinVisibilityClicked"/>
                             </Grid>

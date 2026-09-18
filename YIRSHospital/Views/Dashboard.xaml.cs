@@ -132,7 +132,7 @@ namespace YIRSHospital.Views
 
             try
             {
-                if (!CheckInternetConnection())
+                if (Connectivity.NetworkAccess != NetworkAccess.Internet)
                 {
                     _vm.SetEmptyState("You're offline", "Reconnect to load today's collections.");
                     return;
@@ -148,17 +148,17 @@ namespace YIRSHospital.Views
 
                 string url = $"https://yobe.osoftpay.net/api/TaskPayers/gettransaction?Email={email}&SearchFrom={from}&SearchTo={to}";
 
-                // Explicitly bypass SSL validation for this specific API call to prevent "Secure connection failed"
-                var handler = new System.Net.Http.HttpClientHandler
+                // Enforce SSL Bypass directly on this call
+                var handler = new HttpClientHandler
                 {
                     ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true,
                     SslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls11
                 };
 
-                using (var client = new System.Net.Http.HttpClient(handler))
+                using (var client = new HttpClient(handler))
                 {
                     client.Timeout = TimeSpan.FromSeconds(45);
-                    using (var response = await client.GetAsync(url, CancellationToken.None))
+                    using (var response = await client.GetAsync(url))
                     {
                         var body = await response.Content.ReadAsStringAsync();
 
@@ -185,34 +185,19 @@ namespace YIRSHospital.Views
             {
                 _lastFetchError = ex;
                 System.Diagnostics.Debug.WriteLine("[Dashboard] Refresh failed: " + ex.Message);
-
-                // Show the error cleanly in the UI
                 _vm.SetEmptyState("Connection Failed", "Check your internet connection and pull down to try again.");
             }
             finally
             {
-                ApplyFetchFailureState();
                 _isLoadingData = false;
                 Xamarin.Forms.Device.BeginInvokeOnMainThread(() => _vm.IsRefreshing = false);
             }
-        }
-        private void ApplyFetchFailureState()
-        {
-            if (ApiClient.IsTlsFailure(_lastFetchError))
-            {
-                _vm.SetEmptyState(
-                    "Secure connection failed",
-                    "This device could not verify the server's certificate.");
-                return;
-            }
-            _vm.SetEmptyState("Couldn't load activity", "Pull down to try again.");
         }
 
         private void ApplyTransactions(List<RecentTransaction> all)
         {
             var today = DateTime.Now.Date;
 
-            // Sort by parsed date
             var sorted = all
                 .OrderByDescending(t => t.ParsedDate ?? DateTime.MinValue)
                 .ToList();
@@ -227,7 +212,7 @@ namespace YIRSHospital.Views
             var latest = todays.FirstOrDefault();
             var rows = sorted.Take(ACTIVITY_ROW_LIMIT).ToList();
 
-            Device.BeginInvokeOnMainThread(() =>
+            Xamarin.Forms.Device.BeginInvokeOnMainThread(() =>
             {
                 _vm.CollectedTodayText = FormatNaira(collectedToday);
                 _vm.PaymentCountText = count.ToString(CultureInfo.InvariantCulture);
@@ -272,10 +257,19 @@ namespace YIRSHospital.Views
         #region Models
         public class RecentTransaction
         {
+            [Newtonsoft.Json.JsonProperty("transactionId")]
             public string transactionId { get; set; }
+
+            [Newtonsoft.Json.JsonProperty("serviceName")]
             public string serviceName { get; set; }
+
+            [Newtonsoft.Json.JsonProperty("payerId")]
             public string payerId { get; set; }
+
+            [Newtonsoft.Json.JsonProperty("amount")]
             public decimal amount { get; set; }
+
+            [Newtonsoft.Json.JsonProperty("dateRecorded")]
             public string dateRecorded { get; set; }
 
             public string PrimaryLine => !string.IsNullOrWhiteSpace(payerId) ? payerId.Trim() : (string.IsNullOrWhiteSpace(serviceName) ? "Payment" : serviceName.Trim());
@@ -291,9 +285,10 @@ namespace YIRSHospital.Views
             {
                 get
                 {
-                    // Supports exact formatting like "06/08/26 03:52 PM"
+                    if (string.IsNullOrWhiteSpace(dateRecorded)) return null;
+
                     string[] formats = { "MM/dd/yy hh:mm tt", "dd/MM/yy hh:mm tt", "MM/dd/yyyy hh:mm tt", "dd/MM/yyyy hh:mm tt" };
-                    if (DateTime.TryParseExact(dateRecorded, formats, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime exactDate))
+                    if (DateTime.TryParseExact(dateRecorded.Trim(), formats, CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out DateTime exactDate))
                         return exactDate;
 
                     if (DateTime.TryParse(dateRecorded, out DateTime looseParsed))
