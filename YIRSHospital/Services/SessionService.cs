@@ -15,6 +15,8 @@ namespace YIRSHospital.Services
         public DateTime ExpiresAt { get; set; }
         public string HospitalCode { get; set; }
         public string HospitalDisplayName { get; set; }
+   
+
 
         [JsonIgnore]
         public bool IsValid => !string.IsNullOrWhiteSpace(Email)
@@ -27,7 +29,8 @@ namespace YIRSHospital.Services
         // 4 months
         private static readonly TimeSpan SESSION_LIFETIME = TimeSpan.FromDays(120);
 
-        // ── Save ──────────────────────────────────────────────────────────────
+        public static string CurrentDepartment { get; set; }
+        public static string MerchantNo { get; set; } = string.Empty;
 
         public static Task SaveAsync(string fullName, string email, string category, string collectionPoint)
         {

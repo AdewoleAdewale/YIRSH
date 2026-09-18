@@ -40,6 +40,29 @@ namespace YIRSHospital.Services
         public decimal amount { get; set; }
     }
 
+    public class DepartmentServicesResponse
+    {
+        [JsonProperty("message")]
+        public string Message { get; set; }
+
+        [JsonProperty("code")]
+        public string Code { get; set; }
+
+        [JsonProperty("services")]
+        public List<DepartmentServiceItem> Services { get; set; } = new List<DepartmentServiceItem>();
+    }
+
+    public class DepartmentServiceItem
+    {
+        [JsonProperty("serviceName")]
+        public string ServiceName { get; set; }
+
+        [JsonProperty("amount")]
+        public decimal Amount { get; set; }
+
+        [JsonIgnore]
+        public bool IsSelected { get; set; } // Used for UI binding
+    }
     public class PatientRegistration
     {
         public string FullName { get; set; }
@@ -709,20 +732,7 @@ namespace YIRSHospital.Services
 
         // ── Service catalogue (legacy priced list) ────────────────────────────
 
-        /// <summary>
-        /// The hospital API exposes departments but no priced service list, so
-        /// prices still come from /ListRevServices. The RevHead value differs per
-        /// hospital, hence ResolveRevenueHeadAsync below.
-        /// </summary>
-        public static async Task<ApiResult<List<ServiceCatalogItem>>> GetDepartmentServicesAsync(
-            string revenueHead, string department, CancellationToken ct = default(CancellationToken))
-        {
-            var url = ROOT + "/api/Agents/ListRevServices"
-                    + "?RevHead=" + Uri.EscapeDataString(revenueHead ?? string.Empty)
-                    + "&Dept=" + Uri.EscapeDataString(department ?? string.Empty);
 
-            return await GetJsonAsync<List<ServiceCatalogItem>>(url, ct);
-        }
 
         /// <summary>
         /// Works out which RevHead string returns a priced catalogue for the current
@@ -923,6 +933,37 @@ namespace YIRSHospital.Services
             return await PostJsonAsync<ProcessBillResponse>(url, payload, ct);
         }
 
+        private static async Task<ApiResult<T>> PostJsonAsync<T>(string url, object payload, CancellationToken ct)
+        {
+            try
+            {
+                var jsonPayload = JsonConvert.SerializeObject(payload);
+                var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+
+                using (var response = await _client.PostAsync(url, content, ct))
+                {
+                    var json = await response.Content.ReadAsStringAsync();
+                    if (!response.IsSuccessStatusCode)
+                        return ApiResult<T>.Fail($"Server error ({response.StatusCode}).");
+
+                    if (string.IsNullOrWhiteSpace(json))
+                        return ApiResult<T>.Fail("Empty response from server.");
+
+                    var data = JsonConvert.DeserializeObject<T>(json);
+                    return ApiResult<T>.Ok(data);
+                }
+            }
+            catch (Exception ex)
+            {
+                return ApiResult<T>.Fail(ex.Message);
+            }
+        }
+
+        public static async Task<ApiResult<DepartmentServicesResponse>> GetDepartmentServicesAsync(string hospitalCode, string department, CancellationToken ct = default)
+        {
+            string url = $"{AGENTS}/GetDepartmentServices?hospitalCode={Uri.EscapeDataString(hospitalCode)}&department={Uri.EscapeDataString(department)}";
+            return await GetJsonAsync<DepartmentServicesResponse>(url, ct);
+        }
         // ── 6. Confirm Patient Payment ─────────────────────────────────────
         public static async Task<ApiResult<ConfirmPaymentResponse>> ConfirmPatientPaymentAsync(string patientNo, CancellationToken ct = default)
         {

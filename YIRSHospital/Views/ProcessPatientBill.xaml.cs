@@ -116,7 +116,6 @@ namespace YIRSHospital.Views
                 Department = _currentBill.Department,
                 Email = LoginPage.ValidUserMail,
                 Pin = pin,
-                MerchantNo = SessionService.MerchantNo,
                 PaymentMethod = _selectedPaymentMethod,
                 PaymentReference = _selectedPaymentMethod == "Cash" ? null : refCode,
                 // Match services exactly per API spec: DRF pharmacy requires amount > 0, standard services 0

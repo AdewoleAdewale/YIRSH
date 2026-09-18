@@ -1,10 +1,8 @@
 ﻿using Acr.UserDialogs;
 using System;
-using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
-
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
 using YIRSHospital.Services;
@@ -14,11 +12,46 @@ namespace YIRSHospital.Views
     [XamlCompilation(XamlCompilationOptions.Compile)]
     public partial class RaisePatientBill : ContentPage
     {
+        private ObservableCollection<DepartmentServiceItem> _availableServices = new ObservableCollection<DepartmentServiceItem>();
+
         public RaisePatientBill()
         {
             InitializeComponent();
         }
 
+        protected override async void OnAppearing()
+        {
+            base.OnAppearing();
+            if (!_availableServices.Any())
+            {
+                await LoadDepartmentServices();
+            }
+        }
+
+        private async Task LoadDepartmentServices()
+        {
+            UserDialogs.Instance.ShowLoading("Loading services...");
+
+            var result = await HospitalApiService.GetDepartmentServicesAsync(HospitalContext.Code, SessionService.CurrentDepartment);
+
+            UserDialogs.Instance.HideLoading();
+
+            if (result.Success && result.Data?.Code == "00")
+            {
+                _availableServices = new ObservableCollection<DepartmentServiceItem>(result.Data.Services);
+                ServicesList.ItemsSource = _availableServices;
+            }
+            else
+            {
+                await DisplayAlert("Error", result.Data?.Message ?? "Could not load department services.", "OK");
+            }
+        }
+
+        private void OnServiceCheckedChanged(object sender, CheckedChangedEventArgs e)
+        {
+            decimal total = _availableServices.Where(s => s.IsSelected).Sum(s => s.Amount);
+            TotalAmountLabel.Text = $"₦{total:N2}";
+        }
 
         private async void OnRaiseBillClicked(object sender, EventArgs e)
         {
@@ -29,11 +62,13 @@ namespace YIRSHospital.Views
                 return;
             }
 
-            var selectedServices = _availableServices.Where(s => s.IsSelected).Select(s => new ServicePayload
-            {
-                ServiceName = s.serviceName,
-                Amount = s.amount
-            }).ToList();
+            var selectedServices = _availableServices
+                .Where(s => s.IsSelected)
+                .Select(s => new RaiseBillServiceItem
+                {
+                    ServiceName = s.ServiceName,
+                    Amount = s.Amount
+                }).ToList();
 
             if (!selectedServices.Any())
             {
