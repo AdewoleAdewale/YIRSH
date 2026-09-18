@@ -1,10 +1,11 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:yummy="clr-namespace:Xamarin.Forms.PancakeView;assembly=Xamarin.Forms.PancakeView"
-             xmlns:renderers="clr-namespace:YIRSHospital.Services"
+             xmlns:yummy="clr-namespace:Xamarin.Forms.PancakeView;assembly=Xamarin.Forms.PancakeView" xmlns:renderers="clr-namespace:YIRSHospital.Services"
              x:Class="YIRSHospital.Views.RaisePatientBill"
-             BackgroundColor="#F4F6F8">
+             BackgroundColor="#F4F6F8"
+             Title="Raise Patient Bill">
+
     <ContentPage.Resources>
         <ResourceDictionary>
             <Color x:Key="Primary">#004225</Color>
@@ -14,7 +15,6 @@
             <Color x:Key="TextSecondary">#718096</Color>
             <Color x:Key="Border">#E2E8F0</Color>
 
-            <!-- This missing style caused the crash -->
             <Style x:Key="FieldLabel" TargetType="Label">
                 <Setter Property="FontSize" Value="13"/>
                 <Setter Property="FontAttributes" Value="Bold"/>
@@ -23,132 +23,72 @@
             </Style>
         </ResourceDictionary>
     </ContentPage.Resources>
-    <RefreshView x:Name="PageRefreshView" Refreshing="OnRefreshRequested">
-        <ScrollView>
-            <StackLayout Spacing="18" Padding="16">
 
-                <!-- Header Card -->
-                <yummy:PancakeView BackgroundGradientStartColor="{StaticResource Primary}"
-                                   BackgroundGradientEndColor="{StaticResource PrimaryLight}"
-                                   BackgroundGradientAngle="45"
-                                   CornerRadius="16"
-                                   Padding="20"
-                                   HasShadow="True">
+    <ScrollView>
+        <StackLayout Spacing="16" Padding="16">
+
+            <!-- Patient Information -->
+            <yummy:PancakeView BackgroundColor="White" CornerRadius="14" Padding="16" HasShadow="True">
+                <StackLayout Spacing="14">
+                    <Label Text="Patient Information" FontSize="16" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}"/>
+
                     <StackLayout Spacing="4">
-                        <Label Text="Department Billing" FontSize="20" FontAttributes="Bold" TextColor="White"/>
-                        <Label x:Name="HeaderSubtitleLabel" Text="Raise service bills for patients" FontSize="13" TextColor="#E2E8F0"/>
+                        <Label Text="Patient Number" Style="{StaticResource FieldLabel}"/>
+                        <yummy:PancakeView BorderColor="{StaticResource Border}" BorderThickness="1" CornerRadius="10" BackgroundColor="#F9FAFB" HeightRequest="48">
+                            <renderers:BorderlessEntry x:Name="PatientNoEntry" Placeholder="Enter Patient No" Margin="12,0" TextColor="{StaticResource TextPrimary}"/>
+                        </yummy:PancakeView>
                     </StackLayout>
-                </yummy:PancakeView>
 
-                <!-- ───────────── SUCCESS CARD (shown after a bill is raised) ───────────── -->
-                <yummy:PancakeView x:Name="SuccessCard" BackgroundColor="White" CornerRadius="16" Padding="20" HasShadow="True" IsVisible="False">
-                    <StackLayout Spacing="12">
-                        <StackLayout Orientation="Horizontal" Spacing="10">
-                            <Label Text="✅" FontSize="26" VerticalOptions="Center"/>
-                            <StackLayout Spacing="0" VerticalOptions="Center">
-                                <Label Text="Bill raised successfully" FontSize="15" FontAttributes="Bold" TextColor="#166534"/>
-                                <Label x:Name="SuccessSubtitleLabel" FontSize="12" TextColor="{StaticResource TextSecondary}"/>
-                            </StackLayout>
-                        </StackLayout>
-
-                        <BoxView HeightRequest="1" BackgroundColor="#E2E8F0"/>
-
-                        <Grid ColumnDefinitions="*,Auto">
-                            <StackLayout Grid.Column="0" Spacing="2">
-                                <Label Text="Bill Group ID" FontSize="11" TextColor="{StaticResource TextSecondary}"/>
-                                <Label x:Name="BillGroupIdResultLabel" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}"/>
-                            </StackLayout>
-                            <Button Grid.Column="1" Text="Copy" FontSize="11" Padding="10,4" BackgroundColor="#E2E8F0" TextColor="{StaticResource TextPrimary}" CornerRadius="8" Clicked="OnCopyBillGroupIdClicked"/>
-                        </Grid>
-
-                        <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="8">
-                            <Label Grid.Row="0" Grid.Column="0" Text="Patient:" TextColor="{StaticResource TextSecondary}" FontSize="13"/>
-                            <Label Grid.Row="0" Grid.Column="1" x:Name="ResultPatientNameLabel" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" FontSize="13" HorizontalTextAlignment="End"/>
-
-                            <Label Grid.Row="1" Grid.Column="0" Text="Services Billed:" TextColor="{StaticResource TextSecondary}" FontSize="13"/>
-                            <Label Grid.Row="1" Grid.Column="1" x:Name="ResultServicesCountLabel" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" FontSize="13" HorizontalTextAlignment="End"/>
-
-                            <Label Grid.Row="2" Grid.Column="0" Text="Grand Total:" TextColor="{StaticResource TextSecondary}" FontSize="13"/>
-                            <Label Grid.Row="2" Grid.Column="1" x:Name="ResultGrandTotalLabel" FontAttributes="Bold" TextColor="#10B981" FontSize="15" HorizontalTextAlignment="End"/>
-                        </Grid>
-
-                        <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
-                            <Button Grid.Column="0" Text="📤 Share" FontSize="13" BackgroundColor="#EEF2FF" TextColor="{StaticResource Primary}" CornerRadius="10" Clicked="OnShareResultClicked"/>
-                            <Button Grid.Column="1" Text="＋ Raise Another" FontSize="13" BackgroundColor="{StaticResource Primary}" TextColor="White" CornerRadius="10" Clicked="OnRaiseAnotherClicked"/>
-                        </Grid>
+                    <StackLayout Spacing="4">
+                        <Label Text="Additional Notes" Style="{StaticResource FieldLabel}"/>
+                        <yummy:PancakeView BorderColor="{StaticResource Border}" BorderThickness="1" CornerRadius="10" BackgroundColor="#F9FAFB" HeightRequest="48">
+                            <renderers:BorderlessEntry x:Name="NotesEntry" Placeholder="e.g., Urgent" Margin="12,0" TextColor="{StaticResource TextPrimary}"/>
+                        </yummy:PancakeView>
                     </StackLayout>
-                </yummy:PancakeView>
-
-                <!-- ───────────── FORM (hidden after success, until "Raise Another") ───────────── -->
-                <StackLayout x:Name="FormSection" Spacing="18">
-
-                    <!-- Patient Information -->
-                    <yummy:PancakeView BackgroundColor="White" CornerRadius="14" Padding="16" HasShadow="True">
-                        <StackLayout Spacing="14">
-                            <Label Text="Patient Details" FontSize="16" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}"/>
-
-                            <StackLayout Spacing="4">
-                                <Label Text="Patient Number" />
-                                <yummy:PancakeView BorderColor="{StaticResource Border}" BorderThickness="1" CornerRadius="10" BackgroundColor="#F9FAFB" HeightRequest="48">
-                                    <renderers:BorderlessEntry x:Name="PatientNoEntry" Placeholder="e.g. 0584" Keyboard="Text" Margin="12,0" TextColor="{StaticResource TextPrimary}"/>
-                                </yummy:PancakeView>
-                            </StackLayout>
-
-                            <StackLayout Spacing="4">
-                                <Label Text="Urgency / Notes" />
-                                <yummy:PancakeView BorderColor="WhiteSmoke" BorderThickness="1" CornerRadius="10" BackgroundColor="#F9FAFB" HeightRequest="48">
-                                    <renderers:BorderlessEntry x:Name="NotesEntry" Placeholder="Optional notes" Keyboard="Text" Margin="12,0" TextColor="{StaticResource TextPrimary}"/>
-                                </yummy:PancakeView>
-                            </StackLayout>
-                        </StackLayout>
-                    </yummy:PancakeView>
-
-                    <!-- Services Section -->
-                    <yummy:PancakeView BackgroundColor="White" CornerRadius="14" Padding="16" HasShadow="True">
-                        <StackLayout Spacing="14">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <StackLayout Grid.Column="0" Spacing="0">
-                                    <Label Text="Select Services" FontSize="16" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}"/>
-                                    <Label x:Name="SelectedCountLabel" Text="0 selected" FontSize="11" TextColor="{StaticResource TextSecondary}"/>
-                                </StackLayout>
-                                <Label Grid.Column="1" x:Name="TotalAmountLabel" Text="₦0.00" FontSize="16" FontAttributes="Bold" TextColor="OrangeRed" VerticalOptions="Center"/>
-                            </Grid>
-
-                            <!-- Search / filter -->
-                            <yummy:PancakeView BorderColor="WhiteSmoke" BorderThickness="1" CornerRadius="10" BackgroundColor="#F9FAFB" HeightRequest="42">
-                                <renderers:BorderlessEntry x:Name="ServiceFilterEntry" Placeholder="Search services…" TextChanged="OnServiceFilterTextChanged" Margin="12,0" TextColor="{StaticResource TextPrimary}"/>
-                            </yummy:PancakeView>
-
-                            <!-- Select all / clear -->
-                            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                                <Button Grid.Column="0" Text="Select All" FontSize="12" BackgroundColor="#E2E8F0" TextColor="{StaticResource TextPrimary}" CornerRadius="8" HeightRequest="36" Clicked="OnSelectAllClicked"/>
-                                <Button Grid.Column="1" Text="Clear All" FontSize="12" BackgroundColor="#E2E8F0" TextColor="{StaticResource TextPrimary}" CornerRadius="8" HeightRequest="36" Clicked="OnClearAllClicked"/>
-                            </Grid>
-
-                            <!-- Empty state -->
-                            <StackLayout x:Name="NoServicesLabel" Spacing="4" IsVisible="False" HorizontalOptions="Center" Margin="0,10">
-                                <Label Text="🗒️" FontSize="26" HorizontalOptions="Center"/>
-                                <Label Text="No services match your search" FontSize="12" TextColor="{StaticResource TextSecondary}" HorizontalOptions="Center"/>
-                            </StackLayout>
-
-                            <CollectionView x:Name="ServicesList" HeightRequest="280" SelectionMode="None">
-                                <CollectionView.ItemTemplate>
-                                    <DataTemplate>
-                                        <Grid ColumnDefinitions="Auto,*,Auto" Padding="0,8" ColumnSpacing="12">
-                                            <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}" Color="{StaticResource Primary}" CheckedChanged="OnServiceCheckedChanged"/>
-                                            <Label Grid.Column="1" Text="{Binding ServiceName}" FontSize="14" TextColor="{StaticResource TextPrimary}" VerticalOptions="Center"/>
-                                            <Label Grid.Column="2" Text="{Binding Amount, StringFormat='₦{0:N2}'}" FontSize="14" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" VerticalOptions="Center"/>
-                                        </Grid>
-                                    </DataTemplate>
-                                </CollectionView.ItemTemplate>
-                            </CollectionView>
-
-                            <Button Text="RAISE BILL" BackgroundColor="{StaticResource Primary}" TextColor="White" FontAttributes="Bold" CornerRadius="10" HeightRequest="50" Clicked="OnRaiseBillClicked"/>
-                        </StackLayout>
-                    </yummy:PancakeView>
                 </StackLayout>
+            </yummy:PancakeView>
 
-            </StackLayout>
-        </ScrollView>
-    </RefreshView>
+            <!-- Department & Services -->
+            <yummy:PancakeView BackgroundColor="White" CornerRadius="14" Padding="16" HasShadow="True">
+                <StackLayout Spacing="14">
+
+                    <StackLayout Spacing="4">
+                        <Label Text="Department" Style="{StaticResource FieldLabel}"/>
+                        <yummy:PancakeView BorderColor="{StaticResource Border}" BorderThickness="1" CornerRadius="10" BackgroundColor="#F9FAFB" HeightRequest="48">
+                            <Picker x:Name="DepartmentPicker"
+                                    Title="Select Department"
+                                    Margin="12,0"
+                                    VerticalOptions="Center"
+                                    ItemDisplayBinding="{Binding name}"
+                                    SelectedIndexChanged="OnDepartmentSelectedIndexChanged"
+                                    TextColor="{StaticResource TextPrimary}"/>
+                        </yummy:PancakeView>
+                    </StackLayout>
+
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,10,0,0">
+                        <Label Grid.Column="0" Text="Select Services" FontSize="16" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" VerticalOptions="Center"/>
+                        <Label Grid.Column="1" x:Name="TotalAmountLabel" Text="₦0.00" FontSize="16" FontAttributes="Bold" TextColor="{StaticResource Accent}" VerticalOptions="Center"/>
+                    </Grid>
+
+                    <CollectionView x:Name="ServicesList" HeightRequest="300" SelectionMode="None">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid ColumnDefinitions="Auto,*,Auto" Padding="0,8" ColumnSpacing="12">
+                                    <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}" Color="{StaticResource Primary}" CheckedChanged="OnServiceCheckedChanged"/>
+                                    <Label Grid.Column="1" Text="{Binding serviceName}" FontSize="14" TextColor="{StaticResource TextPrimary}" VerticalOptions="Center"/>
+                                    <Label Grid.Column="2" Text="{Binding amount, StringFormat='₦{0:N2}'}" FontSize="14" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" VerticalOptions="Center"/>
+                                </Grid>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                        <CollectionView.EmptyView>
+                            <Label Text="Select a department to view services" TextColor="{StaticResource TextSecondary}" HorizontalOptions="Center" Margin="0,20,0,0"/>
+                        </CollectionView.EmptyView>
+                    </CollectionView>
+
+                    <Button Text="RAISE BILL" BackgroundColor="{StaticResource Primary}" TextColor="White" FontAttributes="Bold" CornerRadius="10" HeightRequest="50" Clicked="OnRaiseBillClicked"/>
+                </StackLayout>
+            </yummy:PancakeView>
+
+        </StackLayout>
+    </ScrollView>
 </ContentPage>
