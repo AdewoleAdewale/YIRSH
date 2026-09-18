@@ -29,6 +29,8 @@
             <Color x:Key="AmberText">#854F0B</Color>
             <Color x:Key="RedFill">#FCEBEB</Color>
             <Color x:Key="RedText">#A32D2D</Color>
+            <Color x:Key="TextPrimary">#16211C</Color>
+            <Color x:Key="TextSecondary">#6B7770</Color>
 
             <!-- ── Type ramp ───────────────────────────────────────────── -->
             <Style x:Key="Overline" TargetType="Label">
@@ -285,7 +287,7 @@
                         </yummy:PancakeView>
                         <!-- ═══════════════ HOSPITAL WORKFLOW ACTIONS ═══════════════ -->
                         <StackLayout Spacing="10" Margin="0,16,0,8">
-                            <Label Text="Hospital Services" FontSize="16" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}"/>
+                            <Label Text="Hospital Services" FontSize="16" FontAttributes="Bold" TextColor="{StaticResource TextDark}"/>
 
                             <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" RowSpacing="12" ColumnSpacing="12">
 
@@ -299,7 +301,7 @@
                                         <yummy:PancakeView BackgroundColor="#EEF2FF" CornerRadius="10" WidthRequest="40" HeightRequest="40" HorizontalOptions="Start">
                                             <Label Text="📝" FontSize="20" HorizontalOptions="Center" VerticalOptions="Center"/>
                                         </yummy:PancakeView>
-                                        <Label Text="Raise Bill" FontSize="14" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}"/>
+                                        <Label Text="Raise Bill" FontSize="14" FontAttributes="Bold" TextColor="{StaticResource TextDark}"/>
                                         <Label Text="Create department bill" FontSize="11" TextColor="{StaticResource TextSecondary}"/>
                                     </StackLayout>
                                     <yummy:PancakeView.GestureRecognizers>
@@ -317,7 +319,7 @@
                                         <yummy:PancakeView BackgroundColor="#ECFDF5" CornerRadius="10" WidthRequest="40" HeightRequest="40" HorizontalOptions="Start">
                                             <Label Text="💳" FontSize="20" HorizontalOptions="Center" VerticalOptions="Center"/>
                                         </yummy:PancakeView>
-                                        <Label Text="Process Bill" FontSize="14" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}"/>
+                                        <Label Text="Process Bill" FontSize="14" FontAttributes="Bold" TextColor="{StaticResource TextDark}"/>
                                         <Label Text="Fetch &amp; pay pending bills" FontSize="11" TextColor="{StaticResource TextSecondary}"/>
                                     </StackLayout>
                                     <yummy:PancakeView.GestureRecognizers>
@@ -335,7 +337,7 @@
                                         <yummy:PancakeView BackgroundColor="#FEF3C7" CornerRadius="10" WidthRequest="40" HeightRequest="40" HorizontalOptions="Start">
                                             <Label Text="✅" FontSize="20" HorizontalOptions="Center" VerticalOptions="Center"/>
                                         </yummy:PancakeView>
-                                        <Label Text="Confirm Paid" FontSize="14" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}"/>
+                                        <Label Text="Confirm Paid" FontSize="14" FontAttributes="Bold" TextColor="{StaticResource TextDark}"/>
                                         <Label Text="Verify before serving" FontSize="11" TextColor="{StaticResource TextSecondary}"/>
                                     </StackLayout>
                                     <yummy:PancakeView.GestureRecognizers>
@@ -353,7 +355,7 @@
                                         <yummy:PancakeView BackgroundColor="#F3E8FF" CornerRadius="10" WidthRequest="40" HeightRequest="40" HorizontalOptions="Start">
                                             <Label Text="📋" FontSize="20" HorizontalOptions="Center" VerticalOptions="Center"/>
                                         </yummy:PancakeView>
-                                        <Label Text="Patient History" FontSize="14" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}"/>
+                                        <Label Text="Patient History" FontSize="14" FontAttributes="Bold" TextColor="{StaticResource TextDark}"/>
                                         <Label Text="All patient transactions" FontSize="11" TextColor="{StaticResource TextSecondary}"/>
                                     </StackLayout>
                                     <yummy:PancakeView.GestureRecognizers>
