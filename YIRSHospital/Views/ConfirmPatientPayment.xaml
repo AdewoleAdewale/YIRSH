@@ -1,0 +1,48 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:yummy="clr-namespace:Xamarin.Forms.PancakeView;assembly=Xamarin.Forms.PancakeView"
+           xmlns:renderers="clr-namespace:YIRSHospital.Services"
+             x:Class="YIRSHospital.Views.ConfirmPatientPayment"
+             BackgroundColor="#F4F6F8"
+             Title="Confirm Payment">
+
+    <StackLayout Spacing="16" Padding="16">
+
+        <yummy:PancakeView BackgroundColor="White" CornerRadius="12" Padding="16" HasShadow="True">
+            <StackLayout Spacing="10">
+                <Label Text="Verify Patient Payment" FontSize="16" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}"/>
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                    <yummy:PancakeView Grid.Column="0" BorderColor="{StaticResource Border}" BorderThickness="1" CornerRadius="10" BackgroundColor="#F9FAFB">
+                        <renderers:BorderlessEntry x:Name="SearchPatientEntry" Placeholder="Enter Patient Number" Margin="12,0" TextColor="{StaticResource TextPrimary}"/>
+                    </yummy:PancakeView>
+                    <Button Grid.Column="1" Text="CONFIRM" BackgroundColor="{StaticResource Primary}" TextColor="White" CornerRadius="10" Clicked="OnConfirmPaymentClicked"/>
+                </Grid>
+            </StackLayout>
+        </yummy:PancakeView>
+
+        <!-- Status Card (Hidden by default) -->
+        <yummy:PancakeView x:Name="StatusCard" CornerRadius="16" Padding="20" HasShadow="True" IsVisible="False">
+            <StackLayout Spacing="12">
+                <Image x:Name="StatusIcon" HeightRequest="48" WidthRequest="48" HorizontalOptions="Center"/>
+                <Label x:Name="PaymentStatusLabel" FontSize="22" FontAttributes="Bold" HorizontalOptions="Center"/>
+
+                <BoxView HeightRequest="1" BackgroundColor="#E2E8F0" Margin="0,8"/>
+
+                <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="10">
+                    <Label Grid.Row="0" Grid.Column="0" Text="Patient Name:" TextColor="{StaticResource TextSecondary}"/>
+                    <Label Grid.Row="0" Grid.Column="1" x:Name="PatientNameLabel" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}"/>
+
+                    <Label Grid.Row="1" Grid.Column="0" Text="Service Name:" TextColor="{StaticResource TextSecondary}"/>
+                    <Label Grid.Row="1" Grid.Column="1" x:Name="ServiceNameLabel" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}"/>
+
+                    <Label Grid.Row="2" Grid.Column="0" Text="Amount Paid:" TextColor="{StaticResource TextSecondary}"/>
+                    <Label Grid.Row="2" Grid.Column="1" x:Name="AmountPaidLabel" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}"/>
+
+                    <Label Grid.Row="3" Grid.Column="0" Text="Payment Date:" TextColor="{StaticResource TextSecondary}"/>
+                    <Label Grid.Row="3" Grid.Column="1" x:Name="PaymentDateLabel" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}"/>
+                </Grid>
+            </StackLayout>
+        </yummy:PancakeView>
+    </StackLayout>
+</ContentPage>

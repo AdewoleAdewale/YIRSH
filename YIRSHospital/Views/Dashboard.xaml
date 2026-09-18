@@ -244,6 +244,7 @@
                                     </yummy:PancakeView>
                                 </Grid>
                             </StackLayout>
+                         
                         </yummy:PancakeView>
 
                         <StackLayout Orientation="Horizontal" Spacing="8" Padding="16,12,16,0">
@@ -282,6 +283,86 @@
                                 <TapGestureRecognizer Tapped="NewPayment_Tapped"/>
                             </yummy:PancakeView.GestureRecognizers>
                         </yummy:PancakeView>
+                        <!-- ═══════════════ HOSPITAL WORKFLOW ACTIONS ═══════════════ -->
+                        <StackLayout Spacing="10" Margin="0,16,0,8">
+                            <Label Text="Hospital Services" FontSize="16" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}"/>
+
+                            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" RowSpacing="12" ColumnSpacing="12">
+
+                                <!-- 1. Raise Patient Bill -->
+                                <yummy:PancakeView Grid.Row="0" Grid.Column="0"
+  BackgroundColor="White"
+  CornerRadius="14"
+  Padding="14"
+  HasShadow="True">
+                                    <StackLayout Spacing="8">
+                                        <yummy:PancakeView BackgroundColor="#EEF2FF" CornerRadius="10" WidthRequest="40" HeightRequest="40" HorizontalOptions="Start">
+                                            <Label Text="📝" FontSize="20" HorizontalOptions="Center" VerticalOptions="Center"/>
+                                        </yummy:PancakeView>
+                                        <Label Text="Raise Bill" FontSize="14" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}"/>
+                                        <Label Text="Create department bill" FontSize="11" TextColor="{StaticResource TextSecondary}"/>
+                                    </StackLayout>
+                                    <yummy:PancakeView.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnNavigateRaiseBill"/>
+                                    </yummy:PancakeView.GestureRecognizers>
+                                </yummy:PancakeView>
+
+                                <!-- 2. Process Patient Bill (Cashier) -->
+                                <yummy:PancakeView Grid.Row="0" Grid.Column="1"
+  BackgroundColor="White"
+  CornerRadius="14"
+  Padding="14"
+  HasShadow="True">
+                                    <StackLayout Spacing="8">
+                                        <yummy:PancakeView BackgroundColor="#ECFDF5" CornerRadius="10" WidthRequest="40" HeightRequest="40" HorizontalOptions="Start">
+                                            <Label Text="💳" FontSize="20" HorizontalOptions="Center" VerticalOptions="Center"/>
+                                        </yummy:PancakeView>
+                                        <Label Text="Process Bill" FontSize="14" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}"/>
+                                        <Label Text="Fetch &amp; pay pending bills" FontSize="11" TextColor="{StaticResource TextSecondary}"/>
+                                    </StackLayout>
+                                    <yummy:PancakeView.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnNavigateProcessBill"/>
+                                    </yummy:PancakeView.GestureRecognizers>
+                                </yummy:PancakeView>
+
+                                <!-- 3. Confirm Payment -->
+                                <yummy:PancakeView Grid.Row="1" Grid.Column="0"
+  BackgroundColor="White"
+  CornerRadius="14"
+  Padding="14"
+  HasShadow="True">
+                                    <StackLayout Spacing="8">
+                                        <yummy:PancakeView BackgroundColor="#FEF3C7" CornerRadius="10" WidthRequest="40" HeightRequest="40" HorizontalOptions="Start">
+                                            <Label Text="✅" FontSize="20" HorizontalOptions="Center" VerticalOptions="Center"/>
+                                        </yummy:PancakeView>
+                                        <Label Text="Confirm Paid" FontSize="14" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}"/>
+                                        <Label Text="Verify before serving" FontSize="11" TextColor="{StaticResource TextSecondary}"/>
+                                    </StackLayout>
+                                    <yummy:PancakeView.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnNavigateConfirmPayment"/>
+                                    </yummy:PancakeView.GestureRecognizers>
+                                </yummy:PancakeView>
+
+                                <!-- 4. Patient History -->
+                                <yummy:PancakeView Grid.Row="1" Grid.Column="1"
+  BackgroundColor="White"
+  CornerRadius="14"
+  Padding="14"
+  HasShadow="True">
+                                    <StackLayout Spacing="8">
+                                        <yummy:PancakeView BackgroundColor="#F3E8FF" CornerRadius="10" WidthRequest="40" HeightRequest="40" HorizontalOptions="Start">
+                                            <Label Text="📋" FontSize="20" HorizontalOptions="Center" VerticalOptions="Center"/>
+                                        </yummy:PancakeView>
+                                        <Label Text="Patient History" FontSize="14" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}"/>
+                                        <Label Text="All patient transactions" FontSize="11" TextColor="{StaticResource TextSecondary}"/>
+                                    </StackLayout>
+                                    <yummy:PancakeView.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnNavigatePatientHistory"/>
+                                    </yummy:PancakeView.GestureRecognizers>
+                                </yummy:PancakeView>
+
+                            </Grid>
+                        </StackLayout>
 
                         <Grid Margin="16,10,16,0" ColumnSpacing="8">
                             <Grid.ColumnDefinitions>
@@ -339,6 +420,7 @@
                                 </yummy:PancakeView.GestureRecognizers>
                             </yummy:PancakeView>
                         </Grid>
+                        
 
                         <Grid Margin="16,20,16,8">
                             <Grid.ColumnDefinitions>

@@ -697,6 +697,25 @@ namespace YIRSHospital.Views
             }
         }
 
+        private async void OnNavigateRaiseBill(object sender, EventArgs e)
+        {
+            await Navigation.PushAsync(new Views.RaisePatientBill());
+        }
+
+        private async void OnNavigateProcessBill(object sender, EventArgs e)
+        {
+            await Navigation.PushAsync(new Views.ProcessPatientBill());
+        }
+
+        private async void OnNavigateConfirmPayment(object sender, EventArgs e)
+        {
+            await Navigation.PushAsync(new Views.ConfirmPatientPayment());
+        }
+
+        private async void OnNavigatePatientHistory(object sender, EventArgs e)
+        {
+            await Navigation.PushAsync(new Views.PatientTransaction());
+        }
         private bool CheckInternetConnection()
         {
             try

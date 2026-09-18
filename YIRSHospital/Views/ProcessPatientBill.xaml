@@ -1,0 +1,106 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml" xmlns:yummy="clr-namespace:Xamarin.Forms.PancakeView;assembly=Xamarin.Forms.PancakeView" xmlns:renderers="clr-namespace:YIRSHospital.Services"
+             x:Class="YIRSHospital.Views.ProcessPatientBill"
+             BackgroundColor="#F4F6F8"
+             Title="Process Pending Bill">
+
+    <ScrollView>
+        <StackLayout Spacing="16" Padding="16">
+
+            <!-- ── Search & Fetch Card ── -->
+            <yummy:PancakeView BackgroundColor="White" CornerRadius="14" Padding="16" HasShadow="True">
+                <StackLayout Spacing="12">
+                    <StackLayout Spacing="2">
+                        <Label Text="Fetch Pending Bill" FontSize="16" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}"/>
+                        <Label Text="Enter patient number to retrieve cashier bill" FontSize="12" TextColor="{StaticResource TextSecondary}"/>
+                    </StackLayout>
+
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                        <yummy:PancakeView Grid.Column="0" BorderColor="{StaticResource Border}" BorderThickness="1" CornerRadius="10" BackgroundColor="#F9FAFB" HeightRequest="48">
+                            <renderers:BorderlessEntry x:Name="PatientSearchEntry" Placeholder="e.g. 0584" Margin="12,0" VerticalOptions="Center" TextColor="{StaticResource TextPrimary}"/>
+                        </yummy:PancakeView>
+
+                        <Button Grid.Column="1" Text="FETCH" BackgroundColor="{StaticResource Primary}" TextColor="White" FontAttributes="Bold" CornerRadius="10" HeightRequest="48" WidthRequest="90" Clicked="OnFetchBillClicked"/>
+                    </Grid>
+                </StackLayout>
+            </yummy:PancakeView>
+
+            <!-- ── Bill Details Card (Shown after fetch) ── -->
+            <yummy:PancakeView x:Name="BillDetailsCard" BackgroundColor="White" CornerRadius="14" Padding="16" HasShadow="True" IsVisible="False">
+                <StackLayout Spacing="14">
+
+                    <!-- Header Info -->
+                    <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="6">
+                        <Label Grid.Row="0" Grid.Column="0" Text="Patient Name:" TextColor="{StaticResource TextSecondary}" FontSize="13"/>
+                        <Label Grid.Row="0" Grid.Column="1" x:Name="PatientNameLabel" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" FontSize="13"/>
+
+                        <Label Grid.Row="1" Grid.Column="0" Text="Department:" TextColor="{StaticResource TextSecondary}" FontSize="13"/>
+                        <Label Grid.Row="1" Grid.Column="1" x:Name="DepartmentLabel" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" FontSize="13"/>
+
+                        <Label Grid.Row="2" Grid.Column="0" Text="Bill Group ID:" TextColor="{StaticResource TextSecondary}" FontSize="13"/>
+                        <Label Grid.Row="2" Grid.Column="1" x:Name="BillGroupIdLabel" FontAttributes="Bold" TextColor="{StaticResource Primary}" FontSize="13"/>
+                    </Grid>
+
+                    <BoxView HeightRequest="1" BackgroundColor="{StaticResource Border}"/>
+
+                    <!-- Itemized Services -->
+                    <Label Text="Pending Services" FontSize="14" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}"/>
+                    <CollectionView x:Name="PendingServicesCollection" HeightRequest="150" SelectionMode="None">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid ColumnDefinitions="*,Auto" Padding="0,6">
+                                    <StackLayout Grid.Column="0" Spacing="2">
+                                        <Label Text="{Binding ServiceName}" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}"/>
+                                        <Label Text="{Binding Notes, StringFormat='Note: {0}'}" FontSize="11" TextColor="{StaticResource TextSecondary}"/>
+                                    </StackLayout>
+                                    <Label Grid.Column="1" Text="{Binding Amount, StringFormat='₦{0:N2}'}" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" VerticalOptions="Center"/>
+                                </Grid>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+
+                    <!-- Total Banner -->
+                    <yummy:PancakeView BackgroundGradientStartColor="{StaticResource Primary}"
+                                       BackgroundGradientEndColor="{StaticResource PrimaryLight}"
+                                       BackgroundGradientAngle="90"
+                                       CornerRadius="10"
+                                       Padding="14">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Grid.Column="0" Text="Grand Total" TextColor="White" FontSize="14" FontAttributes="Bold" VerticalOptions="Center"/>
+                            <Label Grid.Column="1" x:Name="GrandTotalLabel" TextColor="White" FontSize="20" FontAttributes="Bold" VerticalOptions="Center"/>
+                        </Grid>
+                    </yummy:PancakeView>
+
+                    <!-- ── Payment Method ── -->
+                    <Label Text="Select Payment Method" FontSize="14" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" Margin="0,6,0,0"/>
+                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                        <Button x:Name="CashBtn" Grid.Column="0" Text="Cash" BackgroundColor="{StaticResource Primary}" TextColor="White" CornerRadius="8" HeightRequest="40" Clicked="OnCashSelected"/>
+                        <Button x:Name="TransferBtn" Grid.Column="1" Text="Transfer" BackgroundColor="#E2E8F0" TextColor="{StaticResource TextPrimary}" CornerRadius="8" HeightRequest="40" Clicked="OnTransferSelected"/>
+                        <Button x:Name="CardBtn" Grid.Column="2" Text="Card" BackgroundColor="#E2E8F0" TextColor="{StaticResource TextPrimary}" CornerRadius="8" HeightRequest="40" Clicked="OnCardSelected"/>
+                    </Grid>
+
+                    <!-- Reference Input (For Transfer/Card) -->
+                    <StackLayout x:Name="ReferenceSection" Spacing="4" IsVisible="False">
+                        <Label Text="Payment Reference" Style="{StaticResource FieldLabel}"/>
+                        <yummy:PancakeView BorderColor="{StaticResource Border}" BorderThickness="1" CornerRadius="10" BackgroundColor="#F9FAFB" HeightRequest="44">
+                            <renderers:BorderlessEntry x:Name="ReferenceEntry" Placeholder="Bank transaction reference" Margin="12,0" VerticalOptions="Center" TextColor="{StaticResource TextPrimary}"/>
+                        </yummy:PancakeView>
+                    </StackLayout>
+
+                    <!-- Agent PIN -->
+                    <StackLayout Spacing="4">
+                        <Label Text="Wallet PIN" Style="{StaticResource FieldLabel}"/>
+                        <yummy:PancakeView BorderColor="{StaticResource Border}" BorderThickness="1" CornerRadius="10" BackgroundColor="#F9FAFB" HeightRequest="44">
+                            <renderers:BorderlessEntry x:Name="PinEntry" Placeholder="Enter 4-digit PIN" IsPassword="True" MaxLength="4" Keyboard="Numeric" Margin="12,0" VerticalOptions="Center" TextColor="{StaticResource TextPrimary}"/>
+                        </yummy:PancakeView>
+                    </StackLayout>
+
+                    <!-- Process Payment Action -->
+                    <Button Text="COMPLETE PAYMENT" BackgroundColor="{StaticResource Accent}" TextColor="White" FontAttributes="Bold" CornerRadius="10" HeightRequest="50" Margin="0,8,0,0" Clicked="OnProcessPaymentClicked"/>
+                </StackLayout>
+            </yummy:PancakeView>
+
+        </StackLayout>
+    </ScrollView>
+</ContentPage>
