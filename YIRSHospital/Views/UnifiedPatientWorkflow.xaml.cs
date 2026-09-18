@@ -856,12 +856,12 @@ namespace YIRSHospital.Views
 
                         if (!catalogue.Success || catalogue.Data == null) continue;
 
-                        foreach (var item in catalogue.Data.Data)
+                        foreach (var item in catalogue.Data.Services)
                         {
                             var service = new ServiceItem
                             {
-                                serviceName = item.serviceName,
-                                amount = item.amount,
+                                serviceName = item.ServiceName,
+                                amount = item.Amount,
                                 DepartmentName = dept.name,
                                 Quantity = 1,
                                 IsSelected = false

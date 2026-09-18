@@ -2,47 +2,184 @@
 <ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:yummy="clr-namespace:Xamarin.Forms.PancakeView;assembly=Xamarin.Forms.PancakeView"
-           xmlns:renderers="clr-namespace:YIRSHospital.Services"
+             xmlns:renderers="clr-namespace:YIRSHospital.Services"
              x:Class="YIRSHospital.Views.ConfirmPatientPayment"
              BackgroundColor="#F4F6F8"
              Title="Confirm Payment">
 
-    <StackLayout Spacing="16" Padding="16">
+    <RefreshView x:Name="PageRefreshView" Refreshing="OnRefreshRequested">
+        <ScrollView>
+            <StackLayout Spacing="16" Padding="16">
 
-        <yummy:PancakeView BackgroundColor="White" CornerRadius="12" Padding="16" HasShadow="True">
-            <StackLayout Spacing="10">
-                <Label Text="Verify Patient Payment" FontSize="16" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}"/>
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
-                    <yummy:PancakeView Grid.Column="0" BorderColor="{StaticResource Border}" BorderThickness="1" CornerRadius="10" BackgroundColor="#F9FAFB">
-                        <renderers:BorderlessEntry x:Name="SearchPatientEntry" Placeholder="Enter Patient Number" Margin="12,0" TextColor="{StaticResource TextPrimary}"/>
-                    </yummy:PancakeView>
-                    <Button Grid.Column="1" Text="CONFIRM" BackgroundColor="{StaticResource Primary}" TextColor="White" CornerRadius="10" Clicked="OnConfirmPaymentClicked"/>
-                </Grid>
+                <!-- ───────────── SEARCH CARD ───────────── -->
+                <yummy:PancakeView BackgroundColor="White" CornerRadius="12" Padding="16" HasShadow="True">
+                    <StackLayout Spacing="10">
+                        <Label Text="Verify Patient Payment" FontSize="16" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}"/>
+                        <Label Text="Search by patient number to confirm whether a payment has already been made." FontSize="12" TextColor="{StaticResource TextSecondary}"/>
+
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                            <yummy:PancakeView Grid.Column="0" BorderColor="{StaticResource Border}" BorderThickness="1" CornerRadius="10" BackgroundColor="#F9FAFB">
+                                <renderers:BorderlessEntry x:Name="SearchPatientEntry"
+                                                            Placeholder="Enter Patient Number"
+                                                            Margin="12,0"
+                                                            TextColor="{StaticResource TextPrimary}"
+                                                            ReturnType="Search"
+                                                            Completed="OnConfirmPaymentClicked"/>
+                            </yummy:PancakeView>
+                            <Button x:Name="ConfirmButton" Grid.Column="1" Text="CONFIRM" BackgroundColor="{StaticResource Primary}" TextColor="White" CornerRadius="10" WidthRequest="110" Clicked="OnConfirmPaymentClicked"/>
+                        </Grid>
+
+                        <!-- Recent searches -->
+                        <CollectionView x:Name="RecentSearchesView"
+                                        HeightRequest="42"
+                                        SelectionMode="Single"
+                                        SelectionChanged="OnRecentSearchSelected"
+                                        IsVisible="False">
+                            <CollectionView.ItemsLayout>
+                                <LinearItemsLayout Orientation="Horizontal" ItemSpacing="8"/>
+                            </CollectionView.ItemsLayout>
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate>
+                                    <yummy:PancakeView BackgroundColor="#EEF2FF" CornerRadius="16" Padding="12,8">
+                                        <Label Text="{Binding}" FontSize="12" FontAttributes="Bold" TextColor="{StaticResource Primary}" VerticalOptions="Center"/>
+                                    </yummy:PancakeView>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                    </StackLayout>
+                </yummy:PancakeView>
+
+                <!-- ───────────── IDLE / EMPTY STATE ───────────── -->
+                <yummy:PancakeView x:Name="IdleStateCard" BackgroundColor="White" CornerRadius="12" Padding="28" HasShadow="False">
+                    <StackLayout Spacing="8" HorizontalOptions="Center">
+                        <Label Text="🔍" FontSize="34" HorizontalOptions="Center"/>
+                        <Label Text="No search yet" FontSize="15" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" HorizontalOptions="Center"/>
+                        <Label Text="Enter a patient number above to verify their payment status." FontSize="12" TextColor="{StaticResource TextSecondary}" HorizontalOptions="Center" HorizontalTextAlignment="Center"/>
+                    </StackLayout>
+                </yummy:PancakeView>
+
+                <!-- ───────────── NOT FOUND STATE ───────────── -->
+                <yummy:PancakeView x:Name="NotFoundCard" BackgroundColor="#FFFBEB" BorderColor="#FDE68A" BorderThickness="1" CornerRadius="12" Padding="20" HasShadow="False" IsVisible="False">
+                    <StackLayout Spacing="6" HorizontalOptions="Center">
+                        <Label Text="🗂️" FontSize="30" HorizontalOptions="Center"/>
+                        <Label x:Name="NotFoundTitleLabel" Text="No payment found" FontSize="15" FontAttributes="Bold" TextColor="#92400E" HorizontalOptions="Center"/>
+                        <Label x:Name="NotFoundMessageLabel" FontSize="12" TextColor="#92400E" HorizontalOptions="Center" HorizontalTextAlignment="Center"/>
+                    </StackLayout>
+                </yummy:PancakeView>
+
+                <!-- ───────────── STATUS / RESULT CARD (Hidden by default) ───────────── -->
+                <yummy:PancakeView x:Name="StatusCard" BackgroundColor="White" CornerRadius="16" Padding="20" HasShadow="True" IsVisible="False">
+                    <StackLayout Spacing="16">
+
+                        <!-- Icon + status pill -->
+                        <StackLayout Spacing="10" HorizontalOptions="Center">
+                            <yummy:PancakeView x:Name="StatusIconBadge" CornerRadius="32" WidthRequest="64" HeightRequest="64" HorizontalOptions="Center">
+                                <Label x:Name="StatusIconLabel" FontSize="30" HorizontalOptions="Center" VerticalOptions="Center"/>
+                            </yummy:PancakeView>
+
+                            <yummy:PancakeView x:Name="StatusPill" CornerRadius="14" Padding="14,6" HorizontalOptions="Center">
+                                <Label x:Name="PaymentStatusLabel" FontSize="15" FontAttributes="Bold" HorizontalOptions="Center"/>
+                            </yummy:PancakeView>
+
+                            <Label x:Name="RecencyLabel" FontSize="11" TextColor="{StaticResource TextSecondary}" HorizontalOptions="Center"/>
+                        </StackLayout>
+
+                        <BoxView HeightRequest="1" BackgroundColor="#E2E8F0"/>
+
+                        <!-- Patient Information -->
+                        <StackLayout Spacing="10">
+                            <Label Text="PATIENT INFORMATION" FontSize="11" FontAttributes="Bold" TextColor="{StaticResource TextSecondary}"/>
+                            <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="10">
+                                <Label Grid.Row="0" Grid.Column="0" Text="Patient Name:" TextColor="{StaticResource TextSecondary}"/>
+                                <Label Grid.Row="0" Grid.Column="1" x:Name="PatientNameLabel" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" HorizontalTextAlignment="End"/>
+
+                                <Label Grid.Row="1" Grid.Column="0" Text="Patient No:" TextColor="{StaticResource TextSecondary}"/>
+                                <Label Grid.Row="1" Grid.Column="1" x:Name="PatientNoLabel" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" HorizontalTextAlignment="End"/>
+
+                                <Label Grid.Row="2" Grid.Column="0" Text="Gender:" TextColor="{StaticResource TextSecondary}"/>
+                                <Label Grid.Row="2" Grid.Column="1" x:Name="GenderLabel" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" HorizontalTextAlignment="End"/>
+
+                                <Label Grid.Row="3" Grid.Column="0" Text="Department:" TextColor="{StaticResource TextSecondary}"/>
+                                <Label Grid.Row="3" Grid.Column="1" x:Name="DepartmentLabel" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" HorizontalTextAlignment="End"/>
+                            </Grid>
+
+                            <!-- Tappable phone row -->
+                            <Grid x:Name="PhoneRow" ColumnDefinitions="*,Auto" IsVisible="False">
+                                <Label Grid.Column="0" Text="Phone Number:" TextColor="{StaticResource TextSecondary}" VerticalOptions="Center"/>
+                                <StackLayout Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                                    <Label x:Name="PhoneNumberLabel" FontAttributes="Bold" TextColor="{StaticResource Primary}" VerticalOptions="Center"/>
+                                    <Label Text="📞" FontSize="14" VerticalOptions="Center">
+                                        <Label.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnCallPatientTapped"/>
+                                        </Label.GestureRecognizers>
+                                    </Label>
+                                </StackLayout>
+                            </Grid>
+                        </StackLayout>
+
+                        <BoxView HeightRequest="1" BackgroundColor="#E2E8F0"/>
+
+                        <!-- Payment Details -->
+                        <StackLayout Spacing="10">
+                            <Label Text="PAYMENT DETAILS" FontSize="11" FontAttributes="Bold" TextColor="{StaticResource TextSecondary}"/>
+                            <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="10">
+                                <Label Grid.Row="0" Grid.Column="0" Text="Service Name:" TextColor="{StaticResource TextSecondary}"/>
+                                <Label Grid.Row="0" Grid.Column="1" x:Name="ServiceNameLabel" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" HorizontalTextAlignment="End"/>
+
+                                <Label Grid.Row="1" Grid.Column="0" Text="Amount Paid:" TextColor="{StaticResource TextSecondary}"/>
+                                <Label Grid.Row="1" Grid.Column="1" x:Name="AmountPaidLabel" FontAttributes="Bold" TextColor="#10B981" FontSize="16" HorizontalTextAlignment="End"/>
+
+                                <Label Grid.Row="2" Grid.Column="0" Text="Payment Method:" TextColor="{StaticResource TextSecondary}"/>
+                                <Label Grid.Row="2" Grid.Column="1" x:Name="PaymentMethodLabel" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" HorizontalTextAlignment="End"/>
+
+                                <Label Grid.Row="3" Grid.Column="0" Text="Payment Date:" TextColor="{StaticResource TextSecondary}"/>
+                                <Label Grid.Row="3" Grid.Column="1" x:Name="PaymentDateLabel" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" HorizontalTextAlignment="End"/>
+
+                                <Label Grid.Row="4" Grid.Column="0" Text="Cashed By:" TextColor="{StaticResource TextSecondary}"/>
+                                <Label Grid.Row="4" Grid.Column="1" x:Name="CashedByLabel" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" HorizontalTextAlignment="End"/>
+                            </Grid>
+                        </StackLayout>
+
+                        <BoxView HeightRequest="1" BackgroundColor="#E2E8F0"/>
+
+                        <!-- Transaction Reference -->
+                        <StackLayout Spacing="10">
+                            <Label Text="TRANSACTION REFERENCE" FontSize="11" FontAttributes="Bold" TextColor="{StaticResource TextSecondary}"/>
+
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackLayout Grid.Column="0" Spacing="2">
+                                    <Label Text="Transaction ID" FontSize="11" TextColor="{StaticResource TextSecondary}"/>
+                                    <Label x:Name="TransactionIdLabel" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" LineBreakMode="TailTruncation"/>
+                                </StackLayout>
+                                <Button Grid.Column="1" Text="Copy" FontSize="11" Padding="10,4" BackgroundColor="#E2E8F0" TextColor="{StaticResource TextPrimary}" CornerRadius="8" Clicked="OnCopyTransactionIdClicked"/>
+                            </Grid>
+
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackLayout Grid.Column="0" Spacing="2">
+                                    <Label Text="Debit Reference" FontSize="11" TextColor="{StaticResource TextSecondary}"/>
+                                    <Label x:Name="DebitRefLabel" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" LineBreakMode="TailTruncation"/>
+                                </StackLayout>
+                                <Button Grid.Column="1" Text="Copy" FontSize="11" Padding="10,4" BackgroundColor="#E2E8F0" TextColor="{StaticResource TextPrimary}" CornerRadius="8" Clicked="OnCopyDebitRefClicked"/>
+                            </Grid>
+
+                            <Label Text="Revenue Head:" FontSize="11" TextColor="{StaticResource TextSecondary}"/>
+                            <Label x:Name="RevenueHeadLabel" FontSize="12" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}"/>
+                        </StackLayout>
+
+                        <BoxView HeightRequest="1" BackgroundColor="#E2E8F0"/>
+
+                        <!-- Action buttons -->
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="10" RowDefinitions="Auto,Auto" RowSpacing="10">
+                            <Button x:Name="CallPatientButton" Grid.Row="0" Grid.Column="0" Text="📞 Call Patient" FontSize="13" BackgroundColor="#EEF2FF" TextColor="{StaticResource Primary}" CornerRadius="10" Clicked="OnCallPatientTapped" IsVisible="False"/>
+                            <Button Grid.Row="0" Grid.Column="1" Text="📤 Share" FontSize="13" BackgroundColor="#EEF2FF" TextColor="{StaticResource Primary}" CornerRadius="10" Clicked="OnShareClicked"/>
+                            <Button Grid.Row="1" Grid.Column="0" Text="🖨 Print Slip" FontSize="13" BackgroundColor="#EEF2FF" TextColor="{StaticResource Primary}" CornerRadius="10" Clicked="OnPrintSlipClicked"/>
+                            <Button Grid.Row="1" Grid.Column="1" Text="↻ New Search" FontSize="13" BackgroundColor="#F1F5F9" TextColor="{StaticResource TextSecondary}" CornerRadius="10" Clicked="OnNewSearchClicked"/>
+                        </Grid>
+
+                    </StackLayout>
+                </yummy:PancakeView>
+
             </StackLayout>
-        </yummy:PancakeView>
-
-        <!-- Status Card (Hidden by default) -->
-        <yummy:PancakeView x:Name="StatusCard" CornerRadius="16" Padding="20" HasShadow="True" IsVisible="False">
-            <StackLayout Spacing="12">
-                <Image x:Name="StatusIcon" HeightRequest="48" WidthRequest="48" HorizontalOptions="Center"/>
-                <Label x:Name="PaymentStatusLabel" FontSize="22" FontAttributes="Bold" HorizontalOptions="Center"/>
-
-                <BoxView HeightRequest="1" BackgroundColor="#E2E8F0" Margin="0,8"/>
-
-                <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="10">
-                    <Label Grid.Row="0" Grid.Column="0" Text="Patient Name:" TextColor="{StaticResource TextSecondary}"/>
-                    <Label Grid.Row="0" Grid.Column="1" x:Name="PatientNameLabel" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}"/>
-
-                    <Label Grid.Row="1" Grid.Column="0" Text="Service Name:" TextColor="{StaticResource TextSecondary}"/>
-                    <Label Grid.Row="1" Grid.Column="1" x:Name="ServiceNameLabel" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}"/>
-
-                    <Label Grid.Row="2" Grid.Column="0" Text="Amount Paid:" TextColor="{StaticResource TextSecondary}"/>
-                    <Label Grid.Row="2" Grid.Column="1" x:Name="AmountPaidLabel" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}"/>
-
-                    <Label Grid.Row="3" Grid.Column="0" Text="Payment Date:" TextColor="{StaticResource TextSecondary}"/>
-                    <Label Grid.Row="3" Grid.Column="1" x:Name="PaymentDateLabel" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}"/>
-                </Grid>
-            </StackLayout>
-        </yummy:PancakeView>
-    </StackLayout>
+        </ScrollView>
+    </RefreshView>
 </ContentPage>

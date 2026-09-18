@@ -9,6 +9,7 @@ using System.Security.Authentication;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using YIRSHospital.Models;
 using YIRSHospital.Views;
 
 namespace YIRSHospital.Services
@@ -44,10 +45,8 @@ namespace YIRSHospital.Services
     {
         [JsonProperty("message")]
         public string Message { get; set; }
-
         [JsonProperty("code")]
         public string Code { get; set; }
-
         [JsonProperty("services")]
         public List<DepartmentServiceItem> Services { get; set; } = new List<DepartmentServiceItem>();
     }
@@ -970,5 +969,21 @@ namespace YIRSHospital.Services
             string url = $"{AGENTS}/ConfirmPatientPayment?patientNo={Uri.EscapeDataString(patientNo)}";
             return await GetJsonAsync<ConfirmPaymentResponse>(url, ct);
         }
+
+
+        public static async Task<ApiResult<RaisePatientBillResponse>> RaisePatientBillAsync(RaisePatientBillRequest payload, CancellationToken ct = default)
+        {
+            string url = $"{AGENTS}/RaisePatientBill";
+            return await PostJsonAsync<RaisePatientBillResponse>(url, payload, ct);
+        }
+
+       
+
+        public static async Task<ApiResult<ProcessPatientBillResponse>> ProcessPatientBillAsync(ProcessPatientBillRequest payload, CancellationToken ct = default)
+        {
+            string url = $"{AGENTS}/ProcessPatientBill";
+            return await PostJsonAsync<ProcessPatientBillResponse>(url, payload, ct);
+        }
+
     }
 }
