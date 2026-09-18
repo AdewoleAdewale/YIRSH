@@ -5,6 +5,16 @@
              BackgroundColor="#F4F6F8"
              Title="Process Pending Bill">
 
+
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            
+            <Color x:Key="TextPrimary">#16211C</Color>
+            <Color x:Key="TextSecondary">#6B7770</Color>
+
+        </ResourceDictionary>
+    </ContentPage.Resources>
+
     <RefreshView x:Name="PageRefreshView" Refreshing="OnRefreshRequested">
         <ScrollView>
             <StackLayout Spacing="16" Padding="16">
@@ -18,7 +28,7 @@
                         </StackLayout>
 
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
-                            <yummy:PancakeView Grid.Column="0" BorderColor="{StaticResource Border}" BorderThickness="1" CornerRadius="10" BackgroundColor="#F9FAFB" HeightRequest="48">
+                            <yummy:PancakeView Grid.Column="0" BorderColor="White" BorderThickness="1" CornerRadius="10" BackgroundColor="#F9FAFB" HeightRequest="48">
                                 <renderers:BorderlessEntry x:Name="PatientSearchEntry" Placeholder="e.g. 0584" Margin="12,0" VerticalOptions="Center" TextColor="{StaticResource TextPrimary}" ReturnType="Search" Completed="OnFetchBillClicked"/>
                             </yummy:PancakeView>
 

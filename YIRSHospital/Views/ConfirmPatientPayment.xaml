@@ -7,6 +7,15 @@
              BackgroundColor="#F4F6F8"
              Title="Confirm Payment">
 
+    <ContentPage.Resources>
+        <ResourceDictionary>
+
+            <Color x:Key="TextPrimary">#16211C</Color>
+            <Color x:Key="TextSecondary">#6B7770</Color>
+
+        </ResourceDictionary>
+    </ContentPage.Resources>
+
     <RefreshView x:Name="PageRefreshView" Refreshing="OnRefreshRequested">
         <ScrollView>
             <StackLayout Spacing="16" Padding="16">
@@ -18,7 +27,7 @@
                         <Label Text="Search by patient number to confirm whether a payment has already been made." FontSize="12" TextColor="{StaticResource TextSecondary}"/>
 
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
-                            <yummy:PancakeView Grid.Column="0" BorderColor="{StaticResource Border}" BorderThickness="1" CornerRadius="10" BackgroundColor="#F9FAFB">
+                            <yummy:PancakeView Grid.Column="0" BorderColor="White" BorderThickness="1" CornerRadius="10" BackgroundColor="#F9FAFB">
                                 <renderers:BorderlessEntry x:Name="SearchPatientEntry"
                                                             Placeholder="Enter Patient Number"
                                                             Margin="12,0"

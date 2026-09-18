@@ -5,7 +5,14 @@
              x:Class="YIRSHospital.Views.RaisePatientBill"
              BackgroundColor="#F4F6F8"
              Title="Raise Patient Bill">
+    <ContentPage.Resources>
+        <ResourceDictionary>
 
+            <Color x:Key="TextPrimary">#16211C</Color>
+            <Color x:Key="TextSecondary">#6B7770</Color>
+
+        </ResourceDictionary>
+    </ContentPage.Resources>
     <RefreshView x:Name="PageRefreshView" Refreshing="OnRefreshRequested">
         <ScrollView>
             <StackLayout Spacing="18" Padding="16">
