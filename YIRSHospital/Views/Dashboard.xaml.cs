@@ -141,51 +141,61 @@ namespace YIRSHospital.Views
                 var endDate = DateTime.Now;
                 var startDate = endDate.Date.AddDays(-ACTIVITY_WINDOW_DAYS);
 
-                // Formatting dates exactly as expected by the TaskPayers endpoint (MM-dd-yyyy)
                 string dateFormat = "MM-dd-yyyy";
                 string email = Uri.EscapeDataString(LoginPage.ValidUserMail ?? string.Empty);
                 string from = Uri.EscapeDataString(startDate.ToString(dateFormat, CultureInfo.InvariantCulture));
                 string to = Uri.EscapeDataString(endDate.ToString(dateFormat, CultureInfo.InvariantCulture));
 
-                // Using the exact working API from your history page
                 string url = $"https://yobe.osoftpay.net/api/TaskPayers/gettransaction?Email={email}&SearchFrom={from}&SearchTo={to}";
 
-                // Routing through ApiClient.Shared to utilize the SSL/TLS bypass
-                using (var response = await ApiClient.Shared.GetAsync(url, CancellationToken.None))
+                // Explicitly bypass SSL validation for this specific API call to prevent "Secure connection failed"
+                var handler = new System.Net.Http.HttpClientHandler
                 {
-                    var body = await response.Content.ReadAsStringAsync();
+                    ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true,
+                    SslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls11
+                };
 
-                    if (!response.IsSuccessStatusCode)
+                using (var client = new System.Net.Http.HttpClient(handler))
+                {
+                    client.Timeout = TimeSpan.FromSeconds(45);
+                    using (var response = await client.GetAsync(url, CancellationToken.None))
                     {
-                        _vm.SetEmptyState("Couldn't load activity", "Server error. Pull down to try again.");
-                        return;
+                        var body = await response.Content.ReadAsStringAsync();
+
+                        if (!response.IsSuccessStatusCode)
+                        {
+                            _vm.SetEmptyState("Couldn't load activity", "Server error. Pull down to try again.");
+                            return;
+                        }
+
+                        if (string.IsNullOrWhiteSpace(body) || !body.TrimStart().StartsWith("["))
+                        {
+                            ApplyTransactions(new List<RecentTransaction>());
+                            return;
+                        }
+
+                        var settings = new Newtonsoft.Json.JsonSerializerSettings { DateParseHandling = Newtonsoft.Json.DateParseHandling.None };
+                        var parsed = Newtonsoft.Json.JsonConvert.DeserializeObject<List<RecentTransaction>>(body, settings) ?? new List<RecentTransaction>();
+
+                        ApplyTransactions(parsed);
                     }
-
-                    if (string.IsNullOrWhiteSpace(body) || !body.TrimStart().StartsWith("["))
-                    {
-                        ApplyTransactions(new List<RecentTransaction>());
-                        return;
-                    }
-
-                    var settings = new JsonSerializerSettings { DateParseHandling = DateParseHandling.None };
-                    var parsed = JsonConvert.DeserializeObject<List<RecentTransaction>>(body, settings) ?? new List<RecentTransaction>();
-
-                    ApplyTransactions(parsed);
                 }
             }
             catch (Exception ex)
             {
                 _lastFetchError = ex;
                 System.Diagnostics.Debug.WriteLine("[Dashboard] Refresh failed: " + ex.Message);
-                ApplyFetchFailureState();
+
+                // Show the error cleanly in the UI
+                _vm.SetEmptyState("Connection Failed", "Check your internet connection and pull down to try again.");
             }
             finally
             {
+                ApplyFetchFailureState();
                 _isLoadingData = false;
-                Device.BeginInvokeOnMainThread(() => _vm.IsRefreshing = false);
+                Xamarin.Forms.Device.BeginInvokeOnMainThread(() => _vm.IsRefreshing = false);
             }
         }
-
         private void ApplyFetchFailureState()
         {
             if (ApiClient.IsTlsFailure(_lastFetchError))

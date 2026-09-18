@@ -13,6 +13,14 @@
             <Color x:Key="TextPrimary">#1A202C</Color>
             <Color x:Key="TextSecondary">#718096</Color>
             <Color x:Key="Border">#E2E8F0</Color>
+
+            <!-- This missing style caused the crash -->
+            <Style x:Key="FieldLabel" TargetType="Label">
+                <Setter Property="FontSize" Value="13"/>
+                <Setter Property="FontAttributes" Value="Bold"/>
+                <Setter Property="TextColor" Value="{StaticResource TextPrimary}"/>
+                <Setter Property="Margin" Value="2,0,0,6"/>
+            </Style>
         </ResourceDictionary>
     </ContentPage.Resources>
 
