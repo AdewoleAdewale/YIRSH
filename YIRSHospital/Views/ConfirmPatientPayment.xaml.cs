@@ -84,7 +84,7 @@ namespace YIRSHospital.Views
             {
                 var result = await HospitalApiService.ConfirmPatientPaymentAsync(patientNo);
 
-                if (result.Success && result.Data?.Code == "00")
+                if (result.Success && result.Data != null)
                 {
                     _currentResult = result.Data;
                     RememberSearch(patientNo);
@@ -93,7 +93,8 @@ namespace YIRSHospital.Views
                 else
                 {
                     _currentResult = null;
-                    ShowNotFoundState(result.Data?.Message ?? "No payment found for this patient in your department.");
+                    ShowNotFoundState(result.ErrorMessage
+                        ?? "No payment found for this patient in your department.");
                 }
             }
             catch (Exception ex)

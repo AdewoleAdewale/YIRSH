@@ -15,8 +15,7 @@ namespace YIRSHospital.Services
         public DateTime ExpiresAt { get; set; }
         public string HospitalCode { get; set; }
         public string HospitalDisplayName { get; set; }
-   
-
+        public string MerchantNo { get; set; }
 
         [JsonIgnore]
         public bool IsValid => !string.IsNullOrWhiteSpace(Email)
@@ -34,12 +33,17 @@ namespace YIRSHospital.Services
 
         public static Task SaveAsync(string fullName, string email, string category, string collectionPoint)
         {
-            return SaveAsync(fullName, email, category, collectionPoint, null, null);
+            return SaveAsync(fullName, email, category, collectionPoint, null, null, null);
         }
 
- 
-        public static async Task SaveAsync(string fullName, string email, string category,
+        public static Task SaveAsync(string fullName, string email, string category,
                 string collectionPoint, string hospitalCode, string hospitalDisplayName)
+        {
+            return SaveAsync(fullName, email, category, collectionPoint, hospitalCode, hospitalDisplayName, null);
+        }
+
+        public static async Task SaveAsync(string fullName, string email, string category,
+                string collectionPoint, string hospitalCode, string hospitalDisplayName, string merchantNo)
         {
             try
             {
@@ -49,6 +53,9 @@ namespace YIRSHospital.Services
                     Email = email,
                     Category = category,
                     CollectionPoint = collectionPoint,
+                    HospitalCode = hospitalCode,
+                    HospitalDisplayName = hospitalDisplayName,
+                    MerchantNo = merchantNo,
                     ExpiresAt = DateTime.UtcNow.Add(SESSION_LIFETIME)
                 };
 

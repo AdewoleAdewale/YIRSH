@@ -47,11 +47,17 @@ namespace YIRSHospital.Services
         public string Message { get; set; }
         [JsonProperty("code")]
         public string Code { get; set; }
+        [JsonProperty("department")]
+        public string Department { get; set; }
+
+        [JsonProperty("totalServices")]
+        public int TotalServices { get; set; }
+
         [JsonProperty("services")]
         public List<DepartmentServiceItem> Services { get; set; } = new List<DepartmentServiceItem>();
     }
 
-    public class DepartmentServiceItem
+    public class DepartmentServiceItem : System.ComponentModel.INotifyPropertyChanged
     {
         [JsonProperty("serviceName")]
         public string ServiceName { get; set; }
@@ -59,8 +65,36 @@ namespace YIRSHospital.Services
         [JsonProperty("amount")]
         public decimal Amount { get; set; }
 
+        [JsonProperty("department")]
+        public string Department { get; set; }
+
+        [JsonProperty("category")]
+        public string Category { get; set; }
+
+        [JsonProperty("remitaServiceTypeId")]
+        public string RemitaServiceTypeId { get; set; }
+
+        private bool _isSelected;
+
+        /// <summary>
+        /// Bound two-way to the CheckBox on RaisePatientBill. Must notify, or
+        /// select-all / clear-all leaves stale ticks on screen.
+        /// </summary>
         [JsonIgnore]
-        public bool IsSelected { get; set; } // Used for UI binding
+        public bool IsSelected
+        {
+            get { return _isSelected; }
+            set
+            {
+                if (_isSelected == value) return;
+                _isSelected = value;
+                var handler = PropertyChanged;
+                if (handler != null)
+                    handler(this, new System.ComponentModel.PropertyChangedEventArgs("IsSelected"));
+            }
+        }
+
+        public event System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
     }
     public class PatientRegistration
     {
@@ -341,7 +375,7 @@ namespace YIRSHospital.Services
         [JsonProperty("totalAmount")]
         public decimal TotalAmount { get; set; }
 
-        [JsonProperty("breakdowns")]
+        [JsonProperty("breakdown")]
         public List<BillBreakdownItem> Breakdowns { get; set; } = new List<BillBreakdownItem>();
 
         [JsonProperty("paymentMethod")]
@@ -531,19 +565,30 @@ namespace YIRSHospital.Services
         public const string ROOT = "https://yobe.osoftpay.net";
         private const string AGENTS = ROOT + "/Api/Agents";
 
-        private static readonly HttpClient _client = CreateClient();
-
-        private static HttpClient CreateClient()
+        private static readonly Lazy<HttpClient> _insecureClient = new Lazy<HttpClient>(() =>
         {
             var handler = new HttpClientHandler
             {
-                ServerCertificateCustomValidationCallback = (m, cert, chain, errors) => true,
-                SslProtocols = System.Security.Authentication.SslProtocols.Tls12
-                             | System.Security.Authentication.SslProtocols.Tls11
+                // Bypasses Java SSL/TLS handshake & trust anchor validation errors on Android
+                ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true,
+                SslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls11
             };
 
-            return new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(60) };
-        }
+            var client = new HttpClient(handler)
+            {
+                Timeout = TimeSpan.FromSeconds(45)
+            };
+
+            client.DefaultRequestHeaders.Accept.Add(
+                new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+
+            return client;
+        });
+        // 2. Replace the old ApiClient.Shared references to use the bypass client
+        private static HttpClient _client => _insecureClient.Value;
+
+        // Ensure the secondary property used further down the file also uses it
+        private static HttpClient Client => _insecureClient.Value;
 
         // ── 1. Hospital list ──────────────────────────────────────────────────
 
@@ -584,7 +629,7 @@ namespace YIRSHospital.Services
         public static async Task<ApiResult<List<HospitalDepartment>>> GetDepartmentsAsync(
             string hospitalCode, CancellationToken ct = default(CancellationToken))
         {
-            if (string.IsNullOrWhiteSpace(hospitalCode))  return ApiResult<List<HospitalDepartment>>.Fail("No hospital selected.");
+            if (string.IsNullOrWhiteSpace(hospitalCode)) return ApiResult<List<HospitalDepartment>>.Fail("No hospital selected.");
 
             string code = string.IsNullOrWhiteSpace(hospitalCode) ? HospitalContext.Code : hospitalCode;
             bool isDefault = string.Equals(code, "DEFAULT", StringComparison.OrdinalIgnoreCase) || string.IsNullOrWhiteSpace(code);
@@ -593,14 +638,12 @@ namespace YIRSHospital.Services
                   : AGENTS + "/AllHospitalDepartment?HospitalCode=" + Uri.EscapeDataString(code);
 
             Debug.WriteLine("[HospitalApi] GetDepartments -> GET " + url);
-             var result = await GetJsonAsync<List<HospitalDepartment>>(url, ct);
+            var result = await GetJsonAsync<List<HospitalDepartment>>(url, ct);
 
             if (result.Success && result.Data != null && result.Data.Count > 0)
                 return result;
 
-            Debug.WriteLine("[HospitalApi] Department GET failed (" + result.ErrorMessage + "), retrying as POST.");
-
-        
+            Debug.WriteLine("[HospitalApi] Department GET failed: " + result.ErrorMessage);
 
             if (!isDefault)
             {
@@ -754,7 +797,7 @@ namespace YIRSHospital.Services
             {
                 var probe = await GetDepartmentServicesAsync(candidate, probeDepartment, ct);
                 if (probe.Success && probe.Data != null && probe.Data.Services.Count > 0)
-                    {
+                {
                     Debug.WriteLine("[HospitalApi] RevHead for " + hospitalCode + " resolved to '" + candidate + "'.");
                     HospitalContext.CacheRevenueHead(candidate);
                     return candidate;
@@ -768,25 +811,7 @@ namespace YIRSHospital.Services
 
         // ── Plumbing ──────────────────────────────────────────────────────────
 
-        private static readonly Lazy<HttpClient> _insecureClient = new Lazy<HttpClient>(() =>
-        {
-            var handler = new HttpClientHandler
-            {
-                // Bypasses Java SSL/TLS handshake & trust anchor validation errors
-                ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true,
-                SslProtocols = SslProtocols.Tls12 | SslProtocols.Tls11
-            };
-
-            var client = new HttpClient(handler)
-            {
-                Timeout = TimeSpan.FromSeconds(30)
-            };
-            client.DefaultRequestHeaders.Accept.Add(
-                new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
-            return client;
-        });
-
-        private static HttpClient Client => _insecureClient.Value;
+   
 
         public static async Task<ApiResult<PatientTransactionResponse>> GetPatientTransactionsAsync(
             string patientNo, string hospitalCode = null, int? hospitalId = null, CancellationToken ct = default)
@@ -858,7 +883,8 @@ namespace YIRSHospital.Services
                     var json = await response.Content.ReadAsStringAsync();
 
                     if (!response.IsSuccessStatusCode)
-                        return ApiResult<T>.Fail(DescribeStatus(response.StatusCode, json));
+                        return ApiResult<T>.Fail(ExtractApiError(json)
+                                                 ?? DescribeStatus(response.StatusCode, json));
 
                     if (string.IsNullOrWhiteSpace(json))
                         return ApiResult<T>.Fail("Empty response from server.");
@@ -912,24 +938,94 @@ namespace YIRSHospital.Services
         }
 
         // ── 3. Raise Patient Bill ──────────────────────────────────────────
-        public static async Task<ApiResult<RaiseBillResponse>> RaisePatientBillAsync(RaiseBillRequest payload, CancellationToken ct = default)
+        public static async Task<ApiResult<RaiseBillResponse>> RaisePatientBillAsync(
+            RaiseBillRequest payload, CancellationToken ct = default(CancellationToken))
         {
-            string url = $"{AGENTS}/RaisePatientBill";
-            return await PostJsonAsync<RaiseBillResponse>(url, payload, ct);
+            if (payload == null)
+                return ApiResult<RaiseBillResponse>.Fail("Nothing to bill.");
+            if (string.IsNullOrWhiteSpace(payload.PatientNo))
+                return ApiResult<RaiseBillResponse>.Fail("Patient number is required.");
+            if (string.IsNullOrWhiteSpace(payload.HospitalCode))
+                return ApiResult<RaiseBillResponse>.Fail("No hospital selected.");
+            if (string.IsNullOrWhiteSpace(payload.Department))
+                return ApiResult<RaiseBillResponse>.Fail("Department is required.");
+            if (string.IsNullOrWhiteSpace(payload.Email))
+                return ApiResult<RaiseBillResponse>.Fail("Your session has expired. Please log in again.");
+            if (payload.Services == null || payload.Services.Count == 0)
+                return ApiResult<RaiseBillResponse>.Fail("Select at least one service.");
+            if (payload.Services.Any(x => x.Amount <= 0m))
+                return ApiResult<RaiseBillResponse>.Fail("Every service must have an amount greater than zero.");
+
+            var result = await PostJsonAsync<RaiseBillResponse>(AGENTS + "/RaisePatientBill", payload, ct);
+            return Interpret(result, r => r.Code, r => r.Message);
         }
 
         // ── 4. Get Patient Bill ────────────────────────────────────────────
-        public static async Task<ApiResult<PatientBillResponse>> GetPatientBillAsync(string patientNo, string hospitalCode, CancellationToken ct = default)
+        public static async Task<ApiResult<PatientBillResponse>> GetPatientBillAsync(
+            string patientNo, string hospitalCode, CancellationToken ct = default(CancellationToken))
         {
-            string url = $"{AGENTS}/GetPatientBill?patientNo={Uri.EscapeDataString(patientNo)}&hospitalCode={Uri.EscapeDataString(hospitalCode)}";
-            return await GetJsonAsync<PatientBillResponse>(url, ct);
+            if (string.IsNullOrWhiteSpace(patientNo))
+                return ApiResult<PatientBillResponse>.Fail("Patient number is required.");
+            if (string.IsNullOrWhiteSpace(hospitalCode))
+                return ApiResult<PatientBillResponse>.Fail("No hospital selected.");
+
+            var url = AGENTS + "/GetPatientBill?patientNo=" + Uri.EscapeDataString(patientNo)
+                    + "&hospitalCode=" + Uri.EscapeDataString(hospitalCode);
+
+            var result = await GetJsonAsync<PatientBillResponse>(url, ct);
+            return Interpret(result, r => r.Code, r => r.Message);
         }
 
         // ── 5. Process Patient Bill ────────────────────────────────────────
-        public static async Task<ApiResult<ProcessBillResponse>> ProcessPatientBillAsync(ProcessBillRequest payload, CancellationToken ct = default)
+        public static async Task<ApiResult<ProcessBillResponse>> ProcessPatientBillAsync(
+            ProcessBillRequest payload, CancellationToken ct = default(CancellationToken))
         {
-            string url = $"{AGENTS}/ProcessPatientBill";
-            return await PostJsonAsync<ProcessBillResponse>(url, payload, ct);
+            if (payload == null)
+                return ApiResult<ProcessBillResponse>.Fail("Nothing to process.");
+            if (string.IsNullOrWhiteSpace(payload.HospitalNo))
+                return ApiResult<ProcessBillResponse>.Fail("Patient number is required.");
+            if (string.IsNullOrWhiteSpace(payload.HospitalCode))
+                return ApiResult<ProcessBillResponse>.Fail("No hospital selected.");
+            if (string.IsNullOrWhiteSpace(payload.Email))
+                return ApiResult<ProcessBillResponse>.Fail("Your session has expired. Please log in again.");
+            if (string.IsNullOrWhiteSpace(payload.Pin))
+                return ApiResult<ProcessBillResponse>.Fail("Wallet PIN is required.");
+            if (string.IsNullOrWhiteSpace(payload.MerchantNo))
+                return ApiResult<ProcessBillResponse>.Fail(
+                    "Your merchant number is missing. Please log out and log in again.");
+            if (payload.Services == null || payload.Services.Count == 0)
+                return ApiResult<ProcessBillResponse>.Fail("No services to process.");
+
+            var method = payload.PaymentMethod;
+            if (!string.Equals(method, "Cash", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(method, "Transfer", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(method, "Card", StringComparison.OrdinalIgnoreCase))
+                return ApiResult<ProcessBillResponse>.Fail("Payment method must be Cash, Transfer or Card.");
+
+            var result = await PostJsonAsync<ProcessBillResponse>(AGENTS + "/ProcessPatientBill", payload, ct);
+            return Interpret(result, r => r.Code, r => r.Message);
+        }
+
+        /// <summary>
+        /// Folds the API's own response code into ApiResult. Before this, a body
+        /// carrying code "03" or "06" came back as Success=true and every caller
+        /// had to re-check it by hand — and several forgot.
+        /// </summary>
+        private static ApiResult<T> Interpret<T>(ApiResult<T> result,
+            Func<T, string> codeOf, Func<T, string> messageOf) where T : class
+        {
+            if (!result.Success) return result;
+            if (result.Data == null) return ApiResult<T>.Fail("Empty response from server.");
+
+            var code = codeOf(result.Data);
+            if (code == "00") return result;
+
+            return new ApiResult<T>
+            {
+                Success = false,
+                Data = result.Data,   // kept so callers can still read the raw code
+                ErrorMessage = HospitalResponseCodes.Describe(code, messageOf(result.Data))
+            };
         }
 
         private static async Task<ApiResult<T>> PostJsonAsync<T>(string url, object payload, CancellationToken ct)
@@ -937,53 +1033,87 @@ namespace YIRSHospital.Services
             try
             {
                 var jsonPayload = JsonConvert.SerializeObject(payload);
-                var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+                Debug.WriteLine("[HospitalApi] POST " + url);
 
+                using (var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json"))
                 using (var response = await _client.PostAsync(url, content, ct))
                 {
                     var json = await response.Content.ReadAsStringAsync();
+                    Debug.WriteLine("[HospitalApi] " + response.StatusCode + ": " + Trim(json));
+
                     if (!response.IsSuccessStatusCode)
-                        return ApiResult<T>.Fail($"Server error ({response.StatusCode}).");
+                    {
+                        // A 400 from this API still carries {code, message}; surfacing
+                        // "Server error (BadRequest)" instead of the real reason was
+                        // sending agents back to the desk with nothing to act on.
+                        var fromBody = ExtractApiError(json);
+                        return ApiResult<T>.Fail(fromBody ?? DescribeStatus(response.StatusCode, json));
+                    }
 
                     if (string.IsNullOrWhiteSpace(json))
                         return ApiResult<T>.Fail("Empty response from server.");
 
-                    var data = JsonConvert.DeserializeObject<T>(json);
-                    return ApiResult<T>.Ok(data);
+                    return ApiResult<T>.Ok(JsonConvert.DeserializeObject<T>(json));
                 }
             }
             catch (Exception ex)
             {
-                return ApiResult<T>.Fail(ex.Message);
+                return ApiResult<T>.Fail(Describe(ex));
             }
         }
 
-        public static async Task<ApiResult<DepartmentServicesResponse>> GetDepartmentServicesAsync(string hospitalCode, string department, CancellationToken ct = default)
+        /// <summary>Pulls {code, message} out of a non-2xx body, or null if absent.</summary>
+        private static string ExtractApiError(string json)
         {
-            string url = $"{AGENTS}/GetDepartmentServices?hospitalCode={Uri.EscapeDataString(hospitalCode)}&department={Uri.EscapeDataString(department)}";
-            return await GetJsonAsync<DepartmentServicesResponse>(url, ct);
+            if (string.IsNullOrWhiteSpace(json)) return null;
+
+            try
+            {
+                var envelope = JsonConvert.DeserializeObject<ApiErrorEnvelope>(json);
+                if (envelope == null) return null;
+                if (string.IsNullOrWhiteSpace(envelope.Code) && string.IsNullOrWhiteSpace(envelope.Message))
+                    return null;
+
+                return HospitalResponseCodes.Describe(envelope.Code, envelope.Message);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private class ApiErrorEnvelope
+        {
+            [JsonProperty("code")] public string Code { get; set; }
+            [JsonProperty("message")] public string Message { get; set; }
+        }
+
+        public static async Task<ApiResult<DepartmentServicesResponse>> GetDepartmentServicesAsync(
+            string hospitalCode, string department, CancellationToken ct = default(CancellationToken))
+        {
+            if (string.IsNullOrWhiteSpace(hospitalCode))
+                return ApiResult<DepartmentServicesResponse>.Fail("No hospital selected.");
+            if (string.IsNullOrWhiteSpace(department))
+                return ApiResult<DepartmentServicesResponse>.Fail("Department is required.");
+
+            var url = AGENTS + "/GetDepartmentServices?hospitalCode=" + Uri.EscapeDataString(hospitalCode)
+                    + "&department=" + Uri.EscapeDataString(department);
+
+            var result = await GetJsonAsync<DepartmentServicesResponse>(url, ct);
+            return Interpret(result, r => r.Code, r => r.Message);
         }
         // ── 6. Confirm Patient Payment ─────────────────────────────────────
-        public static async Task<ApiResult<ConfirmPaymentResponse>> ConfirmPatientPaymentAsync(string patientNo, CancellationToken ct = default)
+        public static async Task<ApiResult<ConfirmPaymentResponse>> ConfirmPatientPaymentAsync(
+            string patientNo, CancellationToken ct = default(CancellationToken))
         {
-            string url = $"{AGENTS}/ConfirmPatientPayment?patientNo={Uri.EscapeDataString(patientNo)}";
-            return await GetJsonAsync<ConfirmPaymentResponse>(url, ct);
+            if (string.IsNullOrWhiteSpace(patientNo))
+                return ApiResult<ConfirmPaymentResponse>.Fail("Patient number is required.");
+
+            var url = AGENTS + "/ConfirmPatientPayment?patientNo=" + Uri.EscapeDataString(patientNo);
+            var result = await GetJsonAsync<ConfirmPaymentResponse>(url, ct);
+            return Interpret(result, r => r.Code, r => r.Message);
         }
 
-
-        public static async Task<ApiResult<RaisePatientBillResponse>> RaisePatientBillAsync(RaisePatientBillRequest payload, CancellationToken ct = default)
-        {
-            string url = $"{AGENTS}/RaisePatientBill";
-            return await PostJsonAsync<RaisePatientBillResponse>(url, payload, ct);
-        }
-
-       
-
-        public static async Task<ApiResult<ProcessPatientBillResponse>> ProcessPatientBillAsync(ProcessPatientBillRequest payload, CancellationToken ct = default)
-        {
-            string url = $"{AGENTS}/ProcessPatientBill";
-            return await PostJsonAsync<ProcessPatientBillResponse>(url, payload, ct);
-        }
 
     }
 }

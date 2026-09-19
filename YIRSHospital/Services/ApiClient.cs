@@ -31,6 +31,18 @@ namespace YIRSHospital.Services
             get { return Instance.Value; }
         }
 
+        /// <summary>
+        /// TEMPORARY — SCOPED TO ONE HOST, NOT A GLOBAL BYPASS.
+        /// Set to false the moment yobe.osoftpay.net's TLS config sends its full
+        /// certificate chain (leaf + intermediate) instead of just the leaf —
+        /// that's the actual bug; this flag is a stopgap, not the fix. While
+        /// true, this app will accept ANY certificate presented by that one host,
+        /// including one from an attacker on the same network. Every other host
+        /// still validates normally.
+        /// </summary>
+        private const bool BypassCertificateValidationForOsoftpay = true;
+        private const string OsoftpayHost = "yobe.osoftpay.net";
+
         private static HttpClient Create()
         {
             HttpMessageHandler handler = null;
@@ -47,9 +59,38 @@ namespace YIRSHospital.Services
                 Debug.WriteLine("[ApiClient] Platform handler unavailable: " + ex.Message);
             }
 
-            var client = handler != null
-                ? new HttpClient(handler, disposeHandler: true)
-                : new HttpClient();
+            if (handler == null)
+            {
+                var httpClientHandler = new HttpClientHandler
+                {
+                    SslProtocols = SslProtocols.Tls12 | SslProtocols.Tls11
+                };
+
+                if (BypassCertificateValidationForOsoftpay)
+                {
+                    httpClientHandler.ServerCertificateCustomValidationCallback = (request, cert, chain, errors) =>
+                    {
+                        if (errors == System.Net.Security.SslPolicyErrors.None) return true;
+
+                        bool isTargetHost = request?.RequestUri?.Host != null &&
+                            request.RequestUri.Host.Equals(OsoftpayHost, StringComparison.OrdinalIgnoreCase);
+
+                        if (isTargetHost)
+                        {
+                            Debug.WriteLine("[ApiClient] Bypassing certificate validation for " + OsoftpayHost
+                                + " (errors: " + errors + "). Remove this once the server sends its full chain.");
+                            return true;
+                        }
+
+                        // Every other host still gets real validation.
+                        return false;
+                    };
+                }
+
+                handler = httpClientHandler;
+            }
+
+            var client = new HttpClient(handler, disposeHandler: true);
 
             client.Timeout = TimeSpan.FromSeconds(DefaultTimeoutSeconds);
             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));

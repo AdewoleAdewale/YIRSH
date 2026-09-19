@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Xamarin.Essentials;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
+using YIRSHospital.Models;
 using YIRSHospital.Services;
 
 namespace YIRSHospital.Views
@@ -31,6 +32,16 @@ namespace YIRSHospital.Views
             public string RaisedByText { get; set; }
             public bool HasRaisedBy { get; set; }
         }
+
+        /// <summary>
+        /// Only these departments bill DRF with a custom amount; everywhere else the
+        /// amount must go up as 0. Matching on "contains DRF" alone would catch any
+        /// service name with those three letters in it.
+        /// </summary>
+        private static readonly string[] DrfDepartments =
+        {
+            "PHAMARCY", "GOPD PHARMACY", "MAIN PHARMACY", "A & E PHARMACY", "O AND G PHARMACY"
+        };
 
         private readonly ObservableCollection<string> _recentSearches = new ObservableCollection<string>();
 
@@ -91,7 +102,7 @@ namespace YIRSHospital.Views
                 // Uses active hospital code from HospitalContext
                 var result = await HospitalApiService.GetPatientBillAsync(patientNo, HospitalContext.Code);
 
-                if (result.Success && result.Data != null && result.Data.Code == "00")
+                if (result.Success && result.Data != null)
                 {
                     _currentBill = result.Data;
                     RememberSearch(patientNo);
@@ -99,8 +110,11 @@ namespace YIRSHospital.Views
                 }
                 else
                 {
+                    // ErrorMessage now carries the mapped response code as well as
+                    // network failures — showing "No pending bill found" for a dropped
+                    // connection was sending agents to look for a bill that exists.
                     _currentBill = null;
-                    ShowNotFoundState(result.Data?.Message ?? "No pending bill found.");
+                    ShowNotFoundState(result.ErrorMessage ?? "No pending bill found.");
                 }
             }
             catch (Exception ex)
@@ -268,6 +282,13 @@ namespace YIRSHospital.Views
                 return;
             }
 
+            if (string.IsNullOrWhiteSpace(SessionService.MerchantNo))
+            {
+                await DisplayAlert("Account Setup",
+                    "Your merchant number is missing from this session. Please log out and log in again.", "OK");
+                return;
+            }
+
             string refCode = ReferenceEntry.Text?.Trim();
             if (_selectedPaymentMethod != "Cash" && string.IsNullOrWhiteSpace(refCode))
             {
@@ -284,6 +305,9 @@ namespace YIRSHospital.Views
 
             UserDialogs.Instance.ShowLoading("Processing bill payment...");
 
+            bool isDrfDepartment = DrfDepartments.Contains(
+                (_currentBill.Department ?? string.Empty).Trim(), StringComparer.OrdinalIgnoreCase);
+
             var payload = new ProcessBillRequest
             {
                 HospitalCode = HospitalContext.Code,
@@ -291,14 +315,18 @@ namespace YIRSHospital.Views
                 Department = _currentBill.Department,
                 Email = LoginPage.ValidUserMail,
                 Pin = pin,
+                MerchantNo = SessionService.MerchantNo,
                 PaymentMethod = _selectedPaymentMethod,
                 PaymentReference = _selectedPaymentMethod == "Cash" ? null : refCode,
-                // Match services exactly per API spec: DRF pharmacy requires amount > 0, standard services 0
+                // Services must match the pending bill exactly. Amount goes up as 0 for
+                // regular services; only DRF in a pharmacy department carries a value.
                 Services = _currentBill.Services.Select(s => new ProcessBillServiceItem
                 {
                     ServiceName = s.ServiceName,
                     Quantity = 1,
-                    Amount = s.ServiceName.IndexOf("DRF", StringComparison.OrdinalIgnoreCase) >= 0 ? s.Amount : 0
+                    Amount = (isDrfDepartment && string.Equals(s.ServiceName?.Trim(), "DRF", StringComparison.OrdinalIgnoreCase))
+                        ? s.Amount
+                        : 0m
                 }).ToList()
             };
 
@@ -306,15 +334,41 @@ namespace YIRSHospital.Views
             {
                 var result = await HospitalApiService.ProcessPatientBillAsync(payload);
 
-                if (result.Success && result.Data?.Code == "00")
+                if (result.Success && result.Data != null)
                 {
                     _lastResult = result.Data;
                     ShowResultCard(result.Data);
+                    return;
                 }
-                else
+
+                UserDialogs.Instance.HideLoading();
+
+                var code = result.Data?.Code;
+
+                if (HospitalResponseCodes.RequiresRefetch(code))
                 {
-                    await DisplayAlert("Payment Failed", result.Data?.Message ?? result.ErrorMessage, "OK");
+                    // Code 06 means the bill moved under us — retrying the same payload
+                    // just fails again, so the only useful action is a re-fetch.
+                    bool refetch = await DisplayAlert("Bill Out of Date",
+                        result.ErrorMessage, "Fetch Again", "Cancel");
+
+                    if (refetch)
+                        await RunFetch(_currentBill.PatientNo);
+                    return;
                 }
+
+                if (HospitalResponseCodes.IsTransient(code))
+                {
+                    bool retry = await DisplayAlert("Wallet Unavailable",
+                        result.ErrorMessage, "Retry", "Cancel");
+
+                    if (retry)
+                        OnProcessPaymentClicked(sender, e);
+                    return;
+                }
+
+                await DisplayAlert("Payment Failed",
+                    result.ErrorMessage ?? "The payment could not be completed.", "OK");
             }
             finally
             {

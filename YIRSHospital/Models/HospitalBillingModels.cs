@@ -36,22 +36,6 @@ namespace YIRSHospital.Models
     }
 
     // ── 4. Get Patient Bill Models ──
-    public class PatientBillResponse
-    {
-        [JsonProperty("message")] public string Message { get; set; }
-        [JsonProperty("code")] public string Code { get; set; }
-        [JsonProperty("patientName")] public string PatientName { get; set; }
-        [JsonProperty("patientNo")] public string PatientNo { get; set; }
-        [JsonProperty("gender")] public string Gender { get; set; }
-        [JsonProperty("phoneNumber")] public string PhoneNumber { get; set; }
-        [JsonProperty("hospitalName")] public string HospitalName { get; set; }
-        [JsonProperty("hospitalCode")] public string HospitalCode { get; set; }
-        [JsonProperty("billGroupId")] public string BillGroupId { get; set; }
-        [JsonProperty("department")] public string Department { get; set; }
-        [JsonProperty("grandTotal")] public decimal GrandTotal { get; set; }
-        [JsonProperty("totalServices")] public int TotalServices { get; set; }
-        [JsonProperty("services")] public List<PendingBillService> Services { get; set; } = new List<PendingBillService>();
-    }
 
     public class PendingBillService
     {
@@ -111,4 +95,65 @@ namespace YIRSHospital.Models
         [JsonProperty("date")] public string Date { get; set; }
         [JsonProperty("cashedBy")] public string CashedBy { get; set; }
     }
-}
+
+    public static class HospitalResponseCodes
+    {
+        public const string Success = "00";
+
+        /// <summary>Service mismatch — the pending bill changed under the cashier.</summary>
+        public const string BillChanged = "06";
+
+        public static bool IsSuccess(string code)
+        {
+            return string.Equals(code, Success, StringComparison.Ordinal);
+        }
+
+        /// <summary>
+        /// True when the right recovery is "fetch the bill again", not "retry".
+        /// The process screen uses this to decide which button to offer.
+        /// </summary>
+        public static bool RequiresRefetch(string code)
+        {
+            return code == BillChanged || code == "02";
+        }
+
+        /// <summary>True when the wallet service is simply busy and a retry is sane.</summary>
+        public static bool IsTransient(string code)
+        {
+            return code == "09";
+        }
+
+        public static string Describe(string code, string serverMessage)
+        {
+            switch (code)
+            {
+                case "00": return serverMessage ?? "Successful.";
+                case "01": return "Patient not found under this hospital. Check the patient number.";
+                case "02": return "No pending bill found for this patient.";
+                case "03":
+                    return string.IsNullOrWhiteSpace(serverMessage)
+                                  ? "This patient already has a pending bill. It must be cleared before a new one is raised."
+                                  : serverMessage;
+                case "04": return "That department is not available under this hospital.";
+                case "05": return "One or more of the selected services are not available under this department.";
+                case "06": return "The pending bill no longer matches this payment, or the wallet is short of funds. Fetch the bill again before retrying.";
+                case "07": return "Revenue head not found for this service. Contact admin.";
+                case "08": return "Sharing category not found for this service. Contact admin.";
+                case "09": return "The wallet service is unavailable right now. Please try again in a moment.";
+                case "11": return "Invalid payment method. Use Cash, Transfer or Card.";
+                case "13": return "Agent account not found.";
+                case "16": return "This hospital code is unknown or inactive.";
+                case "97": return "No department is assigned to your account. Contact admin.";
+                case "98": return "Your account was not found. Please log in again.";
+                case "99":
+                    return string.IsNullOrWhiteSpace(serverMessage)
+                                  ? "A required field is missing."
+                                  : serverMessage;
+                default:
+                    return string.IsNullOrWhiteSpace(serverMessage)
+                        ? "Something went wrong. Please try again."
+                        : serverMessage;
+            }
+        }
+    }
+    }

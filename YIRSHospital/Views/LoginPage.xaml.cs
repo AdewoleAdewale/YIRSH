@@ -270,11 +270,11 @@ namespace YIRSHospital.Views
                 };
             }
         }
-      
 
-       
 
-       
+
+
+
         private async void HandleSuccessfulLogin(LoginResult result)
         {
             var agent = result.LoginResponse.agent;
@@ -286,6 +286,17 @@ namespace YIRSHospital.Views
             Pin = agent.pin;
             Super_Agent = agent.SuperAgent;
             CollectionPoint = agent.collectionPoint;
+
+            var merchantNo = agent.ResolveMerchantNo();
+            SessionService.MerchantNo = merchantNo ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(merchantNo))
+            {
+                // Remove this block once CandidateKeys above includes the real key —
+                // this line tells you exactly what to add.
+                System.Diagnostics.Debug.WriteLine("[Login] No merchant number matched. Agent fields were: "
+                    + agent.DescribeAvailableFields());
+            }
 
             string cp = agent.collectionPoint ?? string.Empty;
             string cat = agent.category ?? string.Empty;
@@ -312,7 +323,8 @@ namespace YIRSHospital.Views
             }
 
             await HospitalContext.SelectAsync(resolvedCode, resolvedDisplayName);
-            await SessionService.SaveAsync(agent.name, agent.email, agent.category, agent.collectionPoint, resolvedCode, resolvedDisplayName);
+            await SessionService.SaveAsync(agent.name, agent.email, agent.category, agent.collectionPoint,
+                resolvedCode, resolvedDisplayName, merchantNo);
 
             Device.BeginInvokeOnMainThread(() =>
             {
@@ -535,7 +547,7 @@ namespace YIRSHospital.Views
         {
             bool isValid = true;
 
-         
+
 
             if (!IsValidEmail(EmailEntry.Text))
             {
@@ -578,7 +590,7 @@ namespace YIRSHospital.Views
         }
         #endregion
 
-  
+
 
         #region Lifecycle
         protected override bool OnBackButtonPressed()
@@ -619,6 +631,48 @@ namespace YIRSHospital.Views
         public string collectionPoint { get; set; }
         public string pin { get; set; }
         public string SuperAgent { get; set; }
+
+        // Nothing in the login response is currently mapped to a merchant/wallet
+        // number, and /ProcessPatientBill requires one. Rather than guess a JSON
+        // key name and bind to nothing silently, this captures every field the
+        // server actually sends. TryResolveMerchantNo below checks it against the
+        // handful of plausible names; if none match, ResolveMerchantNo logs the
+        // full set of keys the server sent so you can see the real one and add it
+        // to CandidateKeys.
+        [Newtonsoft.Json.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, Newtonsoft.Json.Linq.JToken> ExtraFields { get; set; }
+
+        private static readonly string[] CandidateKeys =
+        {
+            "merchantNo", "merchantNumber", "MerchantNo", "merchant_no",
+            "walletMerchantNo", "walletNo"
+        };
+
+        /// <summary>
+        /// Returns the merchant number if the response used a name we already
+        /// know about; otherwise null (never throws, never guesses).
+        /// </summary>
+        public string ResolveMerchantNo()
+        {
+            if (ExtraFields == null) return null;
+
+            foreach (var key in CandidateKeys)
+            {
+                if (ExtraFields.TryGetValue(key, out var token) && token != null)
+                {
+                    var value = token.ToString();
+                    if (!string.IsNullOrWhiteSpace(value)) return value;
+                }
+            }
+            return null;
+        }
+
+        /// <summary>Every field name the server actually sent, for a one-time debug check.</summary>
+        public string DescribeAvailableFields()
+        {
+            if (ExtraFields == null || ExtraFields.Count == 0) return "(no extra fields on agent object)";
+            return string.Join(", ", ExtraFields.Keys);
+        }
     }
 
     internal class LoginResult
