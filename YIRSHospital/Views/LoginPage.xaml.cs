@@ -278,6 +278,7 @@ namespace YIRSHospital.Views
         private async void HandleSuccessfulLogin(LoginResult result)
         {
             var agent = result.LoginResponse.agent;
+            string selectedRole = RolePicker.SelectedItem?.ToString() ?? "Agent";
 
             ValidUserMail = agent.email ?? EmailEntry.Text.Trim();
             Passwords = agent.password;
@@ -322,13 +323,20 @@ namespace YIRSHospital.Views
                 resolvedDisplayName = "Yobe State Specialist Hospital";
             }
 
-            await HospitalContext.SelectAsync(resolvedCode, resolvedDisplayName);
-            await SessionService.SaveAsync(agent.name, agent.email, agent.category, agent.collectionPoint,
-                resolvedCode, resolvedDisplayName, merchantNo);
+            await SessionService.SaveAsync(agent.name, agent.email, agent.category, agent.collectionPoint, "DEFAULT", "Yobe Hospital");
+            SessionService.Role = selectedRole;
+            SessionService.CurrentDepartment = agent.department; // Ensure department is saved for Staff
 
             Device.BeginInvokeOnMainThread(() =>
             {
-                Application.Current.MainPage = new NavigationPage(new Views.Dashboard());
+                if (selectedRole == "Staff")
+                {
+                    Application.Current.MainPage = new NavigationPage(new Views.Staff.StaffDashboard());
+                }
+                else
+                {
+                    Application.Current.MainPage = new NavigationPage(new Views.Dashboard());
+                }
             });
         }
 

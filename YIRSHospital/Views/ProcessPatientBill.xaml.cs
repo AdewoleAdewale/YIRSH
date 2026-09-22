@@ -315,18 +315,14 @@ namespace YIRSHospital.Views
                 Department = _currentBill.Department,
                 Email = LoginPage.ValidUserMail,
                 Pin = pin,
-                MerchantNo = SessionService.MerchantNo,
+                // Remove MerchantNo for Staff; retain it for Agents if needed in the future
+                MerchantNo = SessionService.Role == "Staff" ? null : SessionService.MerchantNo,
                 PaymentMethod = _selectedPaymentMethod,
-                PaymentReference = _selectedPaymentMethod == "Cash" ? null : refCode,
-                // Services must match the pending bill exactly. Amount goes up as 0 for
-                // regular services; only DRF in a pharmacy department carries a value.
                 Services = _currentBill.Services.Select(s => new ProcessBillServiceItem
                 {
                     ServiceName = s.ServiceName,
                     Quantity = 1,
-                    Amount = (isDrfDepartment && string.Equals(s.ServiceName?.Trim(), "DRF", StringComparison.OrdinalIgnoreCase))
-                        ? s.Amount
-                        : 0m
+                    Amount = s.ServiceName.IndexOf("DRF", StringComparison.OrdinalIgnoreCase) >= 0 ? s.Amount : 0
                 }).ToList()
             };
 

@@ -1,6 +1,7 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
@@ -11,6 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using YIRSHospital.Models;
 using YIRSHospital.Views;
+using static YIRSHospital.Views.Dashboard;
 
 namespace YIRSHospital.Services
 {
@@ -57,45 +59,66 @@ namespace YIRSHospital.Services
         public List<DepartmentServiceItem> Services { get; set; } = new List<DepartmentServiceItem>();
     }
 
-    public class DepartmentServiceItem : System.ComponentModel.INotifyPropertyChanged
+    public class DepartmentServiceItem : INotifyPropertyChanged
     {
+        private decimal _amount;
+        private bool _initialAmountWasZero;
+
         [JsonProperty("serviceName")]
         public string ServiceName { get; set; }
 
         [JsonProperty("amount")]
-        public decimal Amount { get; set; }
-
-        [JsonProperty("department")]
-        public string Department { get; set; }
-
-        [JsonProperty("category")]
-        public string Category { get; set; }
-
-        [JsonProperty("remitaServiceTypeId")]
-        public string RemitaServiceTypeId { get; set; }
-
-        private bool _isSelected;
-
-        /// <summary>
-        /// Bound two-way to the CheckBox on RaisePatientBill. Must notify, or
-        /// select-all / clear-all leaves stale ticks on screen.
-        /// </summary>
-        [JsonIgnore]
-        public bool IsSelected
+        public decimal Amount
         {
-            get { return _isSelected; }
+            get => _amount;
             set
             {
-                if (_isSelected == value) return;
-                _isSelected = value;
-                var handler = PropertyChanged;
-                if (handler != null)
-                    handler(this, new System.ComponentModel.PropertyChangedEventArgs("IsSelected"));
+                _amount = value;
+                OnPropertyChanged(nameof(Amount));
+                OnPropertyChanged(nameof(FormattedAmount));
+                OnPropertyChanged(nameof(AmountInputText));
             }
         }
 
-        public event System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
+        [JsonIgnore]
+        public bool IsSelected { get; set; }
+
+        public void MarkInitialAmount()
+        {
+            _initialAmountWasZero = (Amount == 0);
+        }
+
+        [JsonIgnore]
+        public bool RequiresManualAmount =>
+            string.Equals(ServiceName?.Trim(), "DRF", StringComparison.OrdinalIgnoreCase)
+            && _initialAmountWasZero;
+
+        [JsonIgnore]
+        public bool ShowFormattedAmount => !RequiresManualAmount;
+
+        [JsonIgnore]
+        public string FormattedAmount => $"₦{Amount:N2}";
+
+        [JsonIgnore]
+        public string AmountInputText
+        {
+            get => Amount == 0 ? string.Empty : Amount.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+            set
+            {
+                if (decimal.TryParse(value, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out decimal val) && val >= 0)
+                    Amount = val;
+                else if (string.IsNullOrWhiteSpace(value))
+                    Amount = 0;
+            }
+        }
+
+        public event PropertyChangedEventHandler PropertyChanged;
+        protected virtual void OnPropertyChanged(string propertyName)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
     }
+
     public class PatientRegistration
     {
         public string FullName { get; set; }
@@ -1115,5 +1138,41 @@ namespace YIRSHospital.Services
         }
 
 
+        public static async Task<ApiResult<List<RecentBillTransaction>>> GetRaiseBillHistoryAsync(string email, DateTime startDate, DateTime endDate, string hospitalCode, CancellationToken ct = default)
+        {
+            // Ensure dates use the required MM-dd-yyyy hyphenated format[cite: 5]
+            string from = Uri.EscapeDataString(startDate.ToString("MM-dd-yyyy", CultureInfo.InvariantCulture));
+            string to = Uri.EscapeDataString(endDate.ToString("MM-dd-yyyy", CultureInfo.InvariantCulture));
+            string safeEmail = Uri.EscapeDataString(email ?? string.Empty);
+
+            // Route to the agent-specific transaction endpoint[cite: 5]
+            string url = $"{ROOT}/api/TaskPayers/getbillraised?Email={safeEmail}&SearchFrom={from}&SearchTo={to}";
+
+            try
+            {
+                // Client inherently uses the _insecureClient SSL-bypass handler[cite: 7]
+                using (var response = await Client.GetAsync(url, ct))
+                {
+                    var json = await response.Content.ReadAsStringAsync();
+
+                    if (!response.IsSuccessStatusCode)
+                        return ApiResult<List<RecentBillTransaction>>.Fail($"Server error ({response.StatusCode})");
+
+                    if (string.IsNullOrWhiteSpace(json) || !json.TrimStart().StartsWith("["))
+                        return ApiResult<List<RecentBillTransaction>>.Ok(new List<RecentBillTransaction>());
+
+                    // Disable automatic date parsing to handle the custom backend formats manually
+                    var settings = new Newtonsoft.Json.JsonSerializerSettings { DateParseHandling = Newtonsoft.Json.DateParseHandling.None };
+                    var parsed = Newtonsoft.Json.JsonConvert.DeserializeObject<List<RecentBillTransaction>>(json, settings) ?? new List<RecentBillTransaction>();
+
+                    return ApiResult<List<RecentBillTransaction>>.Ok(parsed);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[StaffHistory] Fetch failed: {ex.Message}");
+                return ApiResult<List<RecentBillTransaction>>.Fail(ex.Message);
+            }
+        }
     }
 }

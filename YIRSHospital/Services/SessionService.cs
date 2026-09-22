@@ -30,6 +30,9 @@ namespace YIRSHospital.Services
 
         public static string CurrentDepartment { get; set; }
         public static string MerchantNo { get; set; } = string.Empty;
+        public static string Role { get; internal set; }
+        public static string HospitalCode { get; internal set; }
+        public static string HospitalName { get; internal set; }
 
         public static Task SaveAsync(string fullName, string email, string category, string collectionPoint)
         {

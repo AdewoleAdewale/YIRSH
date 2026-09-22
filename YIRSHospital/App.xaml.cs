@@ -28,9 +28,22 @@ namespace YIRSHospital
             MainPage = new NavigationPage(new LoginPage());
             _lastActivityTime = DateTime.Now;
         }
-        protected override async void OnStart()
+        protected override void OnStart()
         {
-            await TryRestoreSessionAsync();
+          
+                // Re-hydrate context
+                _ = HospitalContext.SelectAsync(SessionService.HospitalCode, SessionService.HospitalName);
+
+                // Route to the correct module based on the role selected during the last login
+                if (SessionService.Role == "Staff")
+                {
+                    MainPage = new NavigationPage(new Views.Staff.StaffDashboard());
+                }
+                else
+                {
+                    MainPage = new NavigationPage(new Views.Dashboard());
+                }
+         
         }
 
         protected override void OnSleep() { /* timer keeps running */ }

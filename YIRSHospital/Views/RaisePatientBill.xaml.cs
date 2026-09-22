@@ -1,7 +1,10 @@
 ﻿using Acr.UserDialogs;
+using Android.Accounts;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
 using Xamarin.Forms;
@@ -12,32 +15,36 @@ namespace YIRSHospital.Views
 {
     public partial class RaisePatientBill : ContentPage
     {
-        // Master list (everything returned by the API) and the filtered list bound to the CollectionView.
+     
+        private bool _popOnSheetClose = false;
+        private TaskCompletionSource<bool> _sheetResult;
+
         private readonly List<DepartmentServiceItem> _allServices = new List<DepartmentServiceItem>();
         private readonly ObservableCollection<DepartmentServiceItem> _visibleServices = new ObservableCollection<DepartmentServiceItem>();
-        private ObservableCollection<DepartmentServiceItem> _availableServices = new ObservableCollection<DepartmentServiceItem>();
-
-        private bool _suppressCheckEvents;
-        private TaskCompletionSource<bool> _sheetResult;
-        private bool _popOnSheetClose;
 
         public RaisePatientBill()
         {
             InitializeComponent();
-            ServicesList.ItemsSource = _visibleServices;
-            HospitalCodeLabel.Text = string.IsNullOrWhiteSpace(HospitalContext.Code) ? "—" : HospitalContext.Code;
+            ServicesCollectionView.ItemsSource = _visibleServices;
+            BindingContext = new { StaffDepartment = SessionService.CurrentDepartment ?? "Unknown" };
         }
 
         protected override async void OnAppearing()
         {
             base.OnAppearing();
 
-            if (DepartmentPicker.ItemsSource == null)
+            if (!_allServices.Any())
             {
-                await LoadDepartmentsAsync();
+                string staffDept = SessionService.CurrentDepartment;
+                if (string.IsNullOrWhiteSpace(staffDept))
+                {
+                    await DisplayAlert("Configuration Error", "No department assigned to this staff account.", "OK");
+                    return;
+                }
+
+                await LoadServicesAsync(staffDept);
             }
         }
-
         protected override bool OnBackButtonPressed()
         {
             if (SheetOverlay.IsVisible)
@@ -47,30 +54,13 @@ namespace YIRSHospital.Views
             }
             return base.OnBackButtonPressed();
         }
-
-        // ---------------- Data loading ----------------
-
-        private async Task LoadDepartmentsAsync()
-        {
-            UserDialogs.Instance.ShowLoading("Loading departments...");
-            var result = await HospitalApiService.GetDepartmentsAsync(HospitalContext.Code);
-            UserDialogs.Instance.HideLoading();
-
-            if (result.Success && result.Data != null)
-            {
-                DepartmentPicker.ItemsSource = new ObservableCollection<HospitalDepartment>(result.Data);
-            }
-            else
-            {
-                await DisplayAlert("Error", result.ErrorMessage ?? "Could not load departments.", "OK");
-            }
-        }
-
-
         private async Task LoadServicesAsync(string departmentName)
         {
             UserDialogs.Instance.ShowLoading("Loading services...");
+
+            // Uses the SSL-bypassed client inherently[cite: 7]
             var result = await HospitalApiService.GetDepartmentServicesAsync(HospitalContext.Code, departmentName);
+
             UserDialogs.Instance.HideLoading();
 
             _allServices.Clear();
@@ -78,115 +68,64 @@ namespace YIRSHospital.Views
             {
                 foreach (var svc in result.Data.Services)
                 {
+                    svc.MarkInitialAmount(); // Applies DRF zero-amount logic[cite: 5]
                     _allServices.Add(svc);
                 }
             }
-
-            // This automatically populates _visibleServices and refreshes the CollectionView safely
-            ApplyFilter(ServiceSearchEntry.Text);
-            UpdateTotalAmount();
-        }
-
-        private async void OnDepartmentSelectedIndexChanged(object sender, EventArgs e)
-        {
-            if (DepartmentPicker.SelectedItem is HospitalDepartment selectedDept)
+            else
             {
-                await LoadServicesAsync(selectedDept.name);
+                await DisplayAlert("Error", result.ErrorMessage ?? "Could not load services.", "OK");
             }
-        }
 
-
-
-       
-
-        private void OnServiceCheckedChanged(object sender, CheckedChangedEventArgs e)
-        {
-            UpdateTotalAmount();
-        }
-
-        private void UpdateTotalAmount()
-        {
-            decimal total = _allServices.Where(s => s.IsSelected).Sum(s => s.Amount);
-            TotalAmountLabel.Text = $"₦{total:N2}";
+            ApplyFilter(string.Empty);
         }
         private void OnServiceSearchTextChanged(object sender, TextChangedEventArgs e)
         {
             ApplyFilter(e.NewTextValue);
         }
-
-        private void ApplyFilter(string term)
+        private void ApplyFilter(string query)
         {
-            _suppressCheckEvents = true;
-            try
-            {
-                _visibleServices.Clear();
+            _visibleServices.Clear();
+            var filtered = string.IsNullOrWhiteSpace(query)
+                ? _allServices
+                : _allServices.Where(s => s.ServiceName.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0);
 
-                var query = string.IsNullOrWhiteSpace(term)
-                    ? _allServices
-                    : _allServices.Where(s => !string.IsNullOrEmpty(s.ServiceName) &&
-                                              s.ServiceName.IndexOf(term.Trim(), StringComparison.OrdinalIgnoreCase) >= 0);
-
-                foreach (var svc in query)
-                    _visibleServices.Add(svc);
-            }
-            finally
+            foreach (var item in filtered)
             {
-                _suppressCheckEvents = false;
+                _visibleServices.Add(item);
             }
         }
-
-        private void OnToggleSelectAllClicked(object sender, EventArgs e)
+        private void OnServiceCheckedChanged(object sender, CheckedChangedEventArgs e)
         {
-            if (!_visibleServices.Any()) return;
-
-            bool selectAll = !_visibleServices.All(s => s.IsSelected);
-
-            _suppressCheckEvents = true;
-            foreach (var svc in _visibleServices)
-                svc.IsSelected = selectAll;
-            _suppressCheckEvents = false;
-
-            // Re-apply so checkbox visuals refresh even if the model doesn't raise PropertyChanged.
-            var term = ServiceSearchEntry.Text;
-            ApplyFilter(term);
-
-            SelectAllButton.Text = selectAll ? "Clear all" : "Select all";
             UpdateTotalAmount();
         }
-
-      
-
-      
-
-        private string DepartmentName() =>
-            DepartmentPicker.SelectedItem is HospitalDepartment d ? d.name : "—";
-
-        // ---------------- Submit ----------------
-
+        private void UpdateTotalAmount()
+        {
+            decimal total = _allServices.Where(s => s.IsSelected).Sum(s => s.Amount);
+            TotalAmountLabel.Text = $"₦{total:N2}";
+        }
         private async void OnRaiseBillClicked(object sender, EventArgs e)
         {
             var patientNo = PatientNoEntry.Text?.Trim();
-            if (string.IsNullOrWhiteSpace(patientNo))
-            {
-                await DisplayAlert("Validation", "Patient Number is required.", "OK");
-                return;
-            }
 
-            if (!(DepartmentPicker.SelectedItem is HospitalDepartment selectedDept))
-            {
-                await DisplayAlert("Validation", "Please select a department.", "OK");
-                return;
-            }
-
-            var selectedServices = _allServices.Where(s => s.IsSelected).Select(s => new RaiseBillServiceItem
-            {
-                ServiceName = s.ServiceName,
-                Amount = s.Amount
-            }).ToList();
+            var selectedServices = _allServices.Where(s => s.IsSelected).ToList();
 
             if (!selectedServices.Any())
             {
                 await DisplayAlert("Validation", "Select at least one service.", "OK");
+                return;
+            }
+
+            var missingDrf = selectedServices.FirstOrDefault(s => s.RequiresManualAmount && s.Amount <= 0);
+
+            if (missingDrf != null)
+            {
+                await DisplayAlert("Amount Required", "Please enter a valid amount for the DRF service.", "OK");
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(patientNo))
+            {
+                await DisplayAlert("Validation", "Patient Number is required.", "OK");
                 return;
             }
 
@@ -195,12 +134,15 @@ namespace YIRSHospital.Views
             {
                 PatientNo = patientNo,
                 HospitalCode = HospitalContext.Code,
-                Department = selectedDept.name,
+                Department = SessionService.CurrentDepartment,
                 Email = LoginPage.ValidUserMail,
-                Notes = NotesEntry.Text?.Trim(),
-                Services = selectedServices
+                Services = selectedServices.Select(s => new RaiseBillServiceItem
+                {
+                    ServiceName = s.ServiceName,
+                    Amount = s.Amount
+                }).ToList()
             };
-
+            UserDialogs.Instance.ShowLoading("Raising bill...");
             var result = await HospitalApiService.RaisePatientBillAsync(payload);
             UserDialogs.Instance.HideLoading();
 
@@ -214,10 +156,7 @@ namespace YIRSHospital.Views
                 await DisplayAlert("Error", result.ErrorMessage ?? "The bill could not be raised.", "OK");
             }
         }
-        // ---------------- Bottom sheet ----------------
-
-        private Task ShowSheetAsync(bool success, string title, string message,
-                                    IList<KeyValuePair<string, string>> details = null)
+        private Task ShowSheetAsync(bool success, string title, string message,IList<KeyValuePair<string, string>> details = null)
         {
             SheetTitleLabel.Text = title;
             SheetMessageLabel.Text = message;
@@ -322,4 +261,6 @@ namespace YIRSHospital.Views
             return tcs.Task;
         }
     }
+
+   
 }

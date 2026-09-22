@@ -1,6 +1,7 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
 
 namespace YIRSHospital.Models
@@ -96,7 +97,46 @@ namespace YIRSHospital.Models
         [JsonProperty("cashedBy")] public string CashedBy { get; set; }
     }
 
-    public static class HospitalResponseCodes
+
+    public class RecentBillTransaction
+    {
+        [JsonProperty("payer")]
+        public string payer { get; set; }
+
+        [JsonProperty("amount")]
+        public decimal AmountValue { get; set; }
+
+        [JsonProperty("dateRecorded")]
+        public string dateRecorded { get; set; }
+
+        [JsonProperty("datelIst")]
+        public string dateList { get; set; }
+
+        [JsonIgnore]
+        public string RawDate => !string.IsNullOrWhiteSpace(dateRecorded) ? dateRecorded : dateList;
+
+        [JsonIgnore]
+        public DateTime? RecordedAt
+        {
+            get
+            {
+                if (string.IsNullOrWhiteSpace(RawDate)) return null;
+
+                // Attempt standard ISO parse first
+                if (DateTime.TryParse(RawDate, out DateTime result))
+                    return result;
+
+                // Fallback for custom backend formats like "06/08/26 03:52 PM"[cite: 5]
+                string[] formats = { "MM/dd/yy hh:mm tt", "MM/dd/yyyy hh:mm tt", "MM-dd-yyyy", "yyyy-MM-ddTHH:mm:ss" };
+                if (DateTime.TryParseExact(RawDate, formats, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime exactResult))
+                    return exactResult;
+
+                return null;
+            }
+        }
+
+    }
+        public static class HospitalResponseCodes
     {
         public const string Success = "00";
 

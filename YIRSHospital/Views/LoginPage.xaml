@@ -134,7 +134,18 @@
                          downstream — departments, revenue head, receipt
                          logo — is scoped by it.
                          ─────────────────────────────────────────────── -->
-                 
+                    <!-- ── Role Selection ── -->
+                    <StackLayout Spacing="4">
+                        <Label Text="Login As" Style="{StaticResource FieldLabel}" TextColor="{StaticResource TextPrimary}" />
+                        <yummy:PancakeView Style="{StaticResource FieldShell}" BorderColor="{StaticResource Border}" BorderThickness="1" CornerRadius="10" BackgroundColor="#F9FAFB" HeightRequest="48">
+                            <Picker x:Name="RolePicker" Title="Select Role" Margin="12,0" VerticalOptions="Center" TextColor="{StaticResource TextPrimary}">
+                                <Picker.Items>
+                                    <x:String>Agent</x:String>
+                                    <x:String>Staff</x:String>
+                                </Picker.Items>
+                            </Picker>
+                        </yummy:PancakeView>
+                    </StackLayout>
 
                     <!-- ── Email ───────────────────────────────────────── -->
                     <StackLayout x:Name="EmailSection" Spacing="0" Margin="0,18,0,0">
