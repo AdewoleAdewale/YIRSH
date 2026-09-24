@@ -16,6 +16,8 @@ namespace YIRSHospital.Services
         public string HospitalCode { get; set; }
         public string HospitalDisplayName { get; set; }
         public string MerchantNo { get; set; }
+        public string Role { get; set; }
+        public string Department { get; set; }
 
         [JsonIgnore]
         public bool IsValid => !string.IsNullOrWhiteSpace(Email)
@@ -59,6 +61,8 @@ namespace YIRSHospital.Services
                     HospitalCode = hospitalCode,
                     HospitalDisplayName = hospitalDisplayName,
                     MerchantNo = merchantNo,
+                    Role = Role,
+                    Department = CurrentDepartment,
                     ExpiresAt = DateTime.UtcNow.Add(SESSION_LIFETIME)
                 };
 

@@ -287,6 +287,14 @@ namespace YIRSHospital.Views
             Super_Agent = agent.SuperAgent;
             CollectionPoint = agent.collectionPoint;
 
+            // Persisted-restart routing (App.OnStart / TryRestoreSessionAsync) and
+            // RaisePatientBill's department lock both key off these two statics.
+            // They were previously only set implicitly via SaveAsync's Category
+            // param and StaffContext, which meant a cold app restart had no way
+            // to know the role, and RaisePatientBill read a property nobody wrote.
+            SessionService.Role = agent.category;
+            SessionService.CurrentDepartment = agent.department;
+
             var merchantNo = agent.ResolveMerchantNo();
             SessionService.MerchantNo = merchantNo ?? string.Empty;
 
@@ -674,7 +682,7 @@ namespace YIRSHospital.Views
         public string pin { get; set; }
         public string SuperAgent { get; set; }
 
-   
+
         public string department { get; set; }
         public string hospitalCode { get; set; }
         public string hospitalName { get; set; }

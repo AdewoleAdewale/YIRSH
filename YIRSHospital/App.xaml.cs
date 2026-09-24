@@ -30,20 +30,13 @@ namespace YIRSHospital
         }
         protected override void OnStart()
         {
-          
-                // Re-hydrate context
-                _ = HospitalContext.SelectAsync(SessionService.HospitalCode, SessionService.HospitalName);
-
-                // Route to the correct module based on the role selected during the last login
-                if (SessionService.Role == "Billers")
-                {
-                    MainPage = new NavigationPage(new Views.Staff.StaffDashboard());
-                }
-                else
-                {
-                    MainPage = new NavigationPage(new Views.Dashboard());
-                }
-         
+            // SessionService.Role/HospitalCode etc. are in-memory statics — on a
+            // cold process start (app closed and reopened) they are never
+            // populated, so checking them directly here always fell through to
+            // the Hospital dashboard regardless of who was logged in. The actual
+            // persisted session lives in SecureStorage/Preferences and has to be
+            // loaded and its fields re-hydrated before we can route correctly.
+            _ = TryRestoreSessionAsync();
         }
 
         protected override void OnSleep() { /* timer keeps running */ }
@@ -89,6 +82,14 @@ namespace YIRSHospital
                 LoginPage.category = session.Category;
                 LoginPage.CollectionPoint = session.CollectionPoint;
                 SessionService.MerchantNo = session.MerchantNo ?? string.Empty;
+
+                // These two are what OnStart used to (incorrectly) read before
+                // TryRestoreSessionAsync had ever run. Restore them from the
+                // persisted session, falling back to Category for older sessions
+                // saved before the Role field existed.
+                SessionService.Role = string.IsNullOrWhiteSpace(session.Role) ? session.Category : session.Role;
+                SessionService.CurrentDepartment = session.Department;
+
                 if (!string.IsNullOrWhiteSpace(session.HospitalCode)) await HospitalContext.SelectAsync(session.HospitalCode, session.HospitalDisplayName);
                 else await HospitalContext.RestoreAsync();
                 if (!HospitalContext.IsSelected)
@@ -96,7 +97,13 @@ namespace YIRSHospital
                     Debug.WriteLine("[App] Session has no hospital — showing login.");
                     return;
                 }
-                NavigateToDashboard();
+
+                // Billers are locked to one department (RaisePatientBill reads
+                // StaffContext.Department) — restore that lock too, or a staff
+                // member reopening the app loses their department scoping.
+                await StaffContext.RestoreAsync();
+
+                NavigateToDashboard(SessionService.Role);
             }
             catch (Exception ex)
             {
@@ -107,10 +114,15 @@ namespace YIRSHospital
 
         // ── Navigation helpers ────────────────────────────────────────────
 
-        public void NavigateToDashboard()
+        public void NavigateToDashboard(string role = null)
         {
             IsUserLoggedIn = true;
-            MainPage = new NavigationPage(new Dashboard());
+
+            Page targetPage = LoginCategories.IsBillers(role)
+                ? (Page)new Views.Staff.StaffDashboard()
+                : new Dashboard();
+
+            MainPage = new NavigationPage(targetPage);
             UpdateLastActivity();
         }
 

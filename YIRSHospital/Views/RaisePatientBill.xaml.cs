@@ -15,7 +15,7 @@ namespace YIRSHospital.Views
 {
     public partial class RaisePatientBill : ContentPage
     {
-     
+
         private bool _popOnSheetClose = false;
         private TaskCompletionSource<bool> _sheetResult;
 
@@ -26,7 +26,7 @@ namespace YIRSHospital.Views
         {
             InitializeComponent();
             ServicesCollectionView.ItemsSource = _visibleServices;
-            BindingContext = new { StaffDepartment = SessionService.CurrentDepartment ?? "Unknown" };
+            BindingContext = new { StaffDepartment = ResolveStaffDepartment() ?? "Unknown" };
         }
 
         protected override async void OnAppearing()
@@ -35,7 +35,7 @@ namespace YIRSHospital.Views
 
             if (!_allServices.Any())
             {
-                string staffDept = SessionService.CurrentDepartment;
+                string staffDept = ResolveStaffDepartment();
                 if (string.IsNullOrWhiteSpace(staffDept))
                 {
                     await DisplayAlert("Configuration Error", "No department assigned to this staff account.", "OK");
@@ -54,6 +54,22 @@ namespace YIRSHospital.Views
             }
             return base.OnBackButtonPressed();
         }
+        /// <summary>
+        /// Login sets StaffContext.Department (which is what actually gets
+        /// persisted/restored across app restarts) via StaffContext.SelectAsync
+        /// after reading agent.department from the login response. This page
+        /// used to read SessionService.CurrentDepartment instead, a property
+        /// nothing in the login flow ever wrote to — so it was always null and
+        /// this page never received the department the login response supplied.
+        /// SessionService.CurrentDepartment is kept as a fallback for safety.
+        /// </summary>
+        private string ResolveStaffDepartment()
+        {
+            return !string.IsNullOrWhiteSpace(StaffContext.Department)
+                ? StaffContext.Department
+                : SessionService.CurrentDepartment;
+        }
+
         private async Task LoadServicesAsync(string departmentName)
         {
             UserDialogs.Instance.ShowLoading("Loading services...");
@@ -134,7 +150,7 @@ namespace YIRSHospital.Views
             {
                 PatientNo = patientNo,
                 HospitalCode = HospitalContext.Code,
-                Department = SessionService.CurrentDepartment,
+                Department = ResolveStaffDepartment(),
                 Email = LoginPage.ValidUserMail,
                 Services = selectedServices.Select(s => new RaiseBillServiceItem
                 {
@@ -156,7 +172,7 @@ namespace YIRSHospital.Views
                 await DisplayAlert("Error", result.ErrorMessage ?? "The bill could not be raised.", "OK");
             }
         }
-        private Task ShowSheetAsync(bool success, string title, string message,IList<KeyValuePair<string, string>> details = null)
+        private Task ShowSheetAsync(bool success, string title, string message, IList<KeyValuePair<string, string>> details = null)
         {
             SheetTitleLabel.Text = title;
             SheetMessageLabel.Text = message;
@@ -262,5 +278,5 @@ namespace YIRSHospital.Views
         }
     }
 
-   
+
 }
