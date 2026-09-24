@@ -50,7 +50,7 @@ namespace YIRSHospital.Views.Staff
 
         private async void OnNavigatePatientHistory(object sender, EventArgs e)
         {
-            await Navigation.PushAsync(new PatientTransaction());
+            await Navigation.PushAsync(new StaffBillHistory());
         }
 
         // ── Utility Actions ───────────────────────────────────────────
@@ -104,31 +104,32 @@ namespace YIRSHospital.Views.Staff
             public string Greeting => GetGreeting();
             public string StaffName => LoginPage.Name ?? "Staff Member";
 
-            public ObservableCollection<RecentBillModel> RecentBills { get; } = new ObservableCollection<RecentBillModel>();
-
+            public ObservableCollection<RecentStaffBillModel> RecentBills { get; } = new ObservableCollection<RecentStaffBillModel>();
             public async Task LoadRecentBillsAsync()
             {
                 try
                 {
-                    // Call the appropriate API to fetch bills raised by this staff member.
-                    // Assuming GetPaymentHistoryAsync or a similar endpoint supports filtering by agent email.
-                    var endDate = DateTime.Now;
-                    var startDate = endDate.AddDays(-7);
+                    var email = LoginPage.ValidUserMail;
+                    var code = HospitalContext.Code ?? "DEFAULT";
 
-                    var result = await HospitalApiService.GetRaiseBillHistoryAsync(
-                        LoginPage.ValidUserMail, startDate, endDate, HospitalContext.Code, System.Threading.CancellationToken.None);
+                    // Utilizing the newly adjusted API response
+                    var result = await HospitalApiService.GetStaffBillHistoryAsync(email, code);
 
-                    if (result.Success && result.Data != null)
+                    if (result.Success && result.Data?.Code == "00" && result.Data.BillGroups != null)
                     {
-                        var staffBills = result.Data
-                            .OrderByDescending(b => b.RecordedAt)
-                            .Take(10) // Show top 10 recent
-                            .Select(b => new RecentBillModel
+                        // Take only the top 5 most recent bills for the dashboard overview
+                        var staffBills = result.Data.BillGroups
+                            .OrderByDescending(b => b.DateRaised)
+                            .Take(5)
+                            .Select(b => new RecentStaffBillModel
                             {
-                                PatientName = string.IsNullOrWhiteSpace(b.payer) ? "Payer" : b.payer,
-                                DateRecorded = b.RecordedAt?.ToString("MMM dd, yyyy - hh:mm tt") ?? b.dateRecorded,
-                                Amount = b.AmountValue
-                            });
+                                PatientName = string.IsNullOrWhiteSpace(b.PatientName) ? "Unknown Patient" : b.PatientName,
+                                DateRecorded = b.FormattedDate, // Uses the model's built-in date helper
+                                Amount = b.GrandTotal,
+                                Status = b.Status ?? "Pending",
+                                StatusColor = b.StatusColor,
+                                StatusBgColor = b.StatusBgColor
+                            }).ToList();
 
                         Device.BeginInvokeOnMainThread(() =>
                         {
@@ -142,7 +143,8 @@ namespace YIRSHospital.Views.Staff
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[StaffDashboard] Failed to load bills: {ex.Message}");
+                    System.Diagnostics.Debug.WriteLine($"[StaffDashboard] Failed to load recent bills: {ex.Message}");
+                    // Silently fail so the dashboard remains operational
                 }
             }
 
@@ -160,11 +162,14 @@ namespace YIRSHospital.Views.Staff
             }
         }
 
-        public class RecentBillModel
+        public class RecentStaffBillModel
         {
             public string PatientName { get; set; }
             public string DateRecorded { get; set; }
             public decimal Amount { get; set; }
+            public string Status { get; set; }
+            public Color StatusColor { get; set; }
+            public Color StatusBgColor { get; set; }
         }
     }
 }

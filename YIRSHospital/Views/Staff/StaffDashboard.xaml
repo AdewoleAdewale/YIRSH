@@ -19,7 +19,7 @@
                     <!-- Avatar circle -->
                     <yummy:PancakeView Grid.Column="0"
                                        WidthRequest="52" HeightRequest="52"
-                                       CornerRadius="26"
+                                       CornerRadius="16"
                                        BackgroundColor="#E0F2FE"
                                        VerticalOptions="Center">
                         <Label Text="👤"
@@ -47,8 +47,7 @@
                                        BackgroundColor="#F1F5F9"
                                        VerticalOptions="Center"
                                        HorizontalOptions="End">
-                        <Label Text="⚙️"
-                               FontSize="18"
+                        <Image Source="add" 
                                HorizontalOptions="Center"
                                VerticalOptions="Center"/>
                         <yummy:PancakeView.GestureRecognizers>
@@ -83,10 +82,9 @@
                                                CornerRadius="12"
                                                BackgroundColor="#DBEAFE"
                                                HorizontalOptions="Start">
-                                <Label Text="📝"
-                                       FontSize="20"
-                                       HorizontalOptions="Center"
-                                       VerticalOptions="Center"/>
+                                <Image Source="add"  Margin="5"
+            HorizontalOptions="Center"
+            VerticalOptions="Center"/>
                             </yummy:PancakeView>
                             <StackLayout Spacing="2">
                                 <Label Text="Raise Bill"
@@ -179,10 +177,9 @@
                                                CornerRadius="12"
                                                BackgroundColor="#E0E7FF"
                                                HorizontalOptions="Start">
-                                <Label Text="📋"
-                                       FontSize="20"
-                                       HorizontalOptions="Center"
-                                       VerticalOptions="Center"/>
+                                <Image Source="tenementlist"  Margin="5"
+            HorizontalOptions="Center"
+            VerticalOptions="Center"/>
                             </yummy:PancakeView>
                             <StackLayout Spacing="2">
                                 <Label Text="Patient History"
@@ -211,7 +208,7 @@
                                    HasShadow="True"
                                    Elevation="2">
                     <StackLayout Orientation="Horizontal" Spacing="10" HorizontalOptions="Center">
-                        <Label Text="🖨️" FontSize="16" VerticalOptions="Center"/>
+                        <Image Source="print" VerticalOptions="Center" HeightRequest="20"/>
                         <Label Text="Test Print"
                                FontSize="14"
                                FontAttributes="Bold"
@@ -259,58 +256,30 @@
                            VerticalOptions="Center"/>
                 </Grid>
 
-                <StackLayout x:Name="RecentBillsStack"
-                             BindableLayout.ItemsSource="{Binding RecentBills}"
-                             Spacing="0">
+                <StackLayout x:Name="RecentBillsStack" BindableLayout.ItemsSource="{Binding RecentBills}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate>
-                            <yummy:PancakeView BackgroundColor="White"
-                                               CornerRadius="14"
-                                               Padding="0"
-                                               Margin="0,0,0,10"
-                                               HasShadow="True"
-                                               Elevation="2">
-                                <Grid ColumnDefinitions="6,*,Auto"
-                                      Padding="0,14,16,14"
-                                      ColumnSpacing="0">
-                                    <!-- Soft left accent bar -->
-                                    <BoxView Grid.Column="0"
-                                             Color="#3B82F6"
-                                             WidthRequest="4"
-                                             CornerRadius="2"
-                                             VerticalOptions="Fill"
-                                             Margin="0,4,0,4"/>
+                            <yummy:PancakeView BackgroundColor="White" CornerRadius="12" Padding="14" Margin="0,0,0,8" HasShadow="True">
+                                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" RowSpacing="6">
 
-                                    <!-- Content -->
-                                    <StackLayout Grid.Column="1"
-                                                 Spacing="3"
-                                                 Padding="14,0,0,0"
-                                                 VerticalOptions="Center">
-                                        <Label Text="{Binding PatientName}"
-                                               FontAttributes="Bold"
-                                               FontSize="14"
-                                               TextColor="#0F172A"
-                                               LineBreakMode="TailTruncation"/>
-                                        <Label Text="{Binding DateRecorded}"
-                                               FontSize="12"
-                                               TextColor="#94A3B8"/>
-                                    </StackLayout>
+                                    <Label Grid.Row="0" Grid.Column="0" Text="{Binding PatientName}" FontAttributes="Bold" FontSize="14" TextColor="{StaticResource TextPrimary}" VerticalOptions="Center"/>
+                                    <Label Grid.Row="1" Grid.Column="0" Text="{Binding DateRecorded}" FontSize="12" TextColor="{StaticResource TextSecondary}" VerticalOptions="Center"/>
 
-                                    <!-- Amount badge -->
-                                    <yummy:PancakeView Grid.Column="2"
-                                                       BackgroundColor="#EFF6FF"
-                                                       CornerRadius="10"
-                                                       Padding="10,6"
-                                                       VerticalOptions="Center">
-                                        <Label Text="{Binding Amount, StringFormat='₦{0:N2}'}"
-                                               FontAttributes="Bold"
-                                               FontSize="13"
-                                               TextColor="#1D4ED8"/>
+                                    <Label Grid.Row="0" Grid.Column="1" Text="{Binding Amount, StringFormat='₦{0:N2}'}" FontAttributes="Bold" FontSize="14" TextColor="{StaticResource Primary}" HorizontalOptions="End" VerticalOptions="Center"/>
+
+                                    <yummy:PancakeView Grid.Row="1" Grid.Column="1" BackgroundColor="{Binding StatusBgColor}" CornerRadius="6" Padding="8,4" HorizontalOptions="End" VerticalOptions="Center">
+                                        <Label Text="{Binding Status}" TextColor="{Binding StatusColor}" FontSize="11" FontAttributes="Bold"/>
                                     </yummy:PancakeView>
+
                                 </Grid>
                             </yummy:PancakeView>
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
+                    <BindableLayout.EmptyView>
+                        <StackLayout Padding="20">
+                            <Label Text="No recent bills raised." TextColor="Gray" HorizontalOptions="Center"/>
+                        </StackLayout>
+                    </BindableLayout.EmptyView>
                 </StackLayout>
             </StackLayout>
 

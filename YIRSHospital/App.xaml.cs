@@ -35,7 +35,7 @@ namespace YIRSHospital
                 _ = HospitalContext.SelectAsync(SessionService.HospitalCode, SessionService.HospitalName);
 
                 // Route to the correct module based on the role selected during the last login
-                if (SessionService.Role == "Staff")
+                if (SessionService.Role == "Billers")
                 {
                     MainPage = new NavigationPage(new Views.Staff.StaffDashboard());
                 }

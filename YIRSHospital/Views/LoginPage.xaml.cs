@@ -202,7 +202,7 @@ namespace YIRSHospital.Views
         {
             try
             {
-                var url = $"https://yobe.osoftpay.net/api/TaskPayers/v1/AgentLogin?UserName={Uri.EscapeDataString(email)}&Password={Uri.EscapeDataString(password)}";
+                var url = $"https://yobe.osoftpay.net/Api/TaskPayers/HospitalLogin?UserName={Uri.EscapeDataString(email)}&Password={Uri.EscapeDataString(password)}";
 
 
                 var handler = new HttpClientHandler
@@ -278,7 +278,6 @@ namespace YIRSHospital.Views
         private async void HandleSuccessfulLogin(LoginResult result)
         {
             var agent = result.LoginResponse.agent;
-            string selectedRole = RolePicker.SelectedItem?.ToString() ?? "Agent";
 
             ValidUserMail = agent.email ?? EmailEntry.Text.Trim();
             Passwords = agent.password;
@@ -300,14 +299,24 @@ namespace YIRSHospital.Views
             }
 
             string cp = agent.collectionPoint ?? string.Empty;
-            string cat = agent.category ?? string.Empty;
+            bool isBillers = LoginCategories.IsBillers(agent.category);
+            bool isHospital = LoginCategories.IsHospital(agent.category);
 
-            string resolvedCode = "DEFAULT";
-            string resolvedDisplayName = "Yobe State Specialist Hospital";
+            string resolvedCode;
+            string resolvedDisplayName;
 
-            // Auto-select hospital based on CollectionPoint response
-            if (cp.IndexOf("Potiskum", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                cp.IndexOf("Portiskum", StringComparison.OrdinalIgnoreCase) >= 0)
+            if (!string.IsNullOrWhiteSpace(agent.hospitalCode))
+            {
+                // Billers responses give hospitalCode/hospitalName directly —
+                // no need to guess from free text the way Hospital-category
+                // logins still require below.
+                resolvedCode = agent.hospitalCode.Trim();
+                resolvedDisplayName = string.IsNullOrWhiteSpace(agent.hospitalName)
+                    ? resolvedCode
+                    : agent.hospitalName.Trim();
+            }
+            else if (cp.IndexOf("Potiskum", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                     cp.IndexOf("Portiskum", StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 resolvedCode = "POTISKUM";
                 resolvedDisplayName = "State Specialist Hospital Potiskum";
@@ -317,32 +326,57 @@ namespace YIRSHospital.Views
                 resolvedCode = "DAMAGUM";
                 resolvedDisplayName = "General Hospital Damagum";
             }
-            else if (cp.IndexOf("Specialist", StringComparison.OrdinalIgnoreCase) >= 0)
+            else
             {
+                // Also the fallback when collectionPoint is empty/unrecognised.
                 resolvedCode = "DEFAULT";
                 resolvedDisplayName = "Yobe State Specialist Hospital";
             }
 
-            await SessionService.SaveAsync(agent.name, agent.email, agent.category, agent.collectionPoint, "DEFAULT", "Yobe Hospital");
-            SessionService.Role = selectedRole;
-            SessionService.CurrentDepartment = agent.department; // Ensure department is saved for Staff
+            await HospitalContext.SelectAsync(resolvedCode, resolvedDisplayName);
 
-            Device.BeginInvokeOnMainThread(() =>
-            {
-                if (selectedRole == "Staff")
-                {
-                    Application.Current.MainPage = new NavigationPage(new Views.Staff.StaffDashboard());
-                }
-                else
-                {
-                    Application.Current.MainPage = new NavigationPage(new Views.Dashboard());
-                }
-            });
+            // Billers are locked to the one department their account belongs to;
+            // Hospital-category agents pick a department per-bill elsewhere in the
+            // app, so make sure a stale lock from a previous staff session on this
+            // device doesn't leak into an agent login.
+            if (isBillers)
+                await StaffContext.SelectAsync(agent.department);
+            else
+                await StaffContext.SelectAsync(null);
+
+            await SessionService.SaveAsync(agent.name, agent.email, agent.category, agent.collectionPoint,
+                resolvedCode, resolvedDisplayName, merchantNo);
+
+            NavigateBasedOnCategory(agent.category);
         }
 
+        /// <summary>
+        /// The category on the HospitalLogin response is now authoritative — there
+        /// is no separate "log in as agent / log in as staff" choice for the
+        /// person to make. "Hospital" is the cashier/agent flow (ProcessPatientBill,
+        /// ConfirmPatientPayment); "Billers" is department staff, who only raise
+        /// bills, against the one department their account is locked to.
+        /// </summary>
         private void NavigateBasedOnCategory(string agentCategory)
         {
-            Page targetPage = new Views.Dashboard();
+            Page targetPage;
+
+            if (LoginCategories.IsBillers(agentCategory))
+            {
+                targetPage = new Views.Staff.StaffDashboard();
+            }
+            else if (LoginCategories.IsHospital(agentCategory))
+            {
+                targetPage = new Views.Dashboard();
+            }
+            else
+            {
+                // Unrecognised category from the server — don't strand the user on
+                // a blank screen; fall back to the fuller (Hospital) dashboard and
+                // note it for follow-up, since that's the safer of the two default.
+                System.Diagnostics.Debug.WriteLine("[Login] Unknown category '" + agentCategory + "', defaulting to Dashboard.");
+                targetPage = new Views.Dashboard();
+            }
 
             Device.BeginInvokeOnMainThread(() =>
             {
@@ -640,13 +674,12 @@ namespace YIRSHospital.Views
         public string pin { get; set; }
         public string SuperAgent { get; set; }
 
-        // Nothing in the login response is currently mapped to a merchant/wallet
-        // number, and /ProcessPatientBill requires one. Rather than guess a JSON
-        // key name and bind to nothing silently, this captures every field the
-        // server actually sends. TryResolveMerchantNo below checks it against the
-        // handful of plausible names; if none match, ResolveMerchantNo logs the
-        // full set of keys the server sent so you can see the real one and add it
-        // to CandidateKeys.
+   
+        public string department { get; set; }
+        public string hospitalCode { get; set; }
+        public string hospitalName { get; set; }
+
+
         [Newtonsoft.Json.JsonExtensionData]
         public System.Collections.Generic.IDictionary<string, Newtonsoft.Json.Linq.JToken> ExtraFields { get; set; }
 

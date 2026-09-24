@@ -631,8 +631,7 @@ namespace YIRSHospital.Services
 
         // ── 3. Hospital info ──────────────────────────────────────────────────
 
-        public static async Task<ApiResult<HospitalInfo>> GetHospitalInfoAsync(
-            string hospitalCode, CancellationToken ct = default(CancellationToken))
+        public static async Task<ApiResult<HospitalInfo>> GetHospitalInfoAsync( string hospitalCode, CancellationToken ct = default(CancellationToken))
         {
             if (string.IsNullOrWhiteSpace(hospitalCode))
                 return ApiResult<HospitalInfo>.Fail("No hospital selected.");
@@ -641,43 +640,6 @@ namespace YIRSHospital.Services
             return await GetJsonAsync<HospitalInfo>(url, ct);
         }
 
-        // ── 4. Departments for a hospital ─────────────────────────────────────
-
-        /// <summary>
-        /// GET /AllHospitalDepartment?HospitalCode=X.
-        /// A GET against this route currently answers 405 on the live host, so we
-        /// retry as a form POST before giving up. Remove the fallback once the
-        /// backend settles on one verb.
-        /// </summary>
-        public static async Task<ApiResult<List<HospitalDepartment>>> GetDepartmentsAsync(
-            string hospitalCode, CancellationToken ct = default(CancellationToken))
-        {
-            if (string.IsNullOrWhiteSpace(hospitalCode)) return ApiResult<List<HospitalDepartment>>.Fail("No hospital selected.");
-
-            string code = string.IsNullOrWhiteSpace(hospitalCode) ? HospitalContext.Code : hospitalCode;
-            bool isDefault = string.Equals(code, "DEFAULT", StringComparison.OrdinalIgnoreCase) || string.IsNullOrWhiteSpace(code);
-            string url = isDefault
-                  ? AGENTS + "/ListDepartment"
-                  : AGENTS + "/AllHospitalDepartment?HospitalCode=" + Uri.EscapeDataString(code);
-
-            Debug.WriteLine("[HospitalApi] GetDepartments -> GET " + url);
-            var result = await GetJsonAsync<List<HospitalDepartment>>(url, ct);
-
-            if (result.Success && result.Data != null && result.Data.Count > 0)
-                return result;
-
-            Debug.WriteLine("[HospitalApi] Department GET failed: " + result.ErrorMessage);
-
-            if (!isDefault)
-            {
-                Debug.WriteLine("[HospitalApi] Specific department GET failed, falling back to ListDepartment");
-                return await GetJsonAsync<List<HospitalDepartment>>(AGENTS + "/ListDepartment", ct);
-            }
-
-            return result;
-        }
-
-        // ── 5. Register patient ───────────────────────────────────────────────
 
         public static async Task<ApiResult<PatientRegistrationResult>> RegisterPatientAsync(
             PatientRegistration data, CancellationToken ct = default(CancellationToken))
@@ -836,48 +798,47 @@ namespace YIRSHospital.Services
 
    
 
-        public static async Task<ApiResult<PatientTransactionResponse>> GetPatientTransactionsAsync(
-            string patientNo, string hospitalCode = null, int? hospitalId = null, CancellationToken ct = default)
-        {
-            if (string.IsNullOrWhiteSpace(patientNo))
-                return ApiResult<PatientTransactionResponse>.Fail("Patient Number is required.");
+        //public static async Task<ApiResult<PatientTransactionResponse>> GetPatientTransactionsAsync(string patientNo, string hospitalCode = null, int? hospitalId = null, CancellationToken ct = default)
+        //{
+        //    if (string.IsNullOrWhiteSpace(patientNo))
+        //        return ApiResult<PatientTransactionResponse>.Fail("Patient Number is required.");
 
-            string code = string.IsNullOrWhiteSpace(hospitalCode) ? HospitalContext.Code : hospitalCode;
-            bool isDefault = string.Equals(code, "DEFAULT", StringComparison.OrdinalIgnoreCase) || string.IsNullOrWhiteSpace(code);
+        //    string code = string.IsNullOrWhiteSpace(hospitalCode) ? HospitalContext.Code : hospitalCode;
+        //    bool isDefault = string.Equals(code, "DEFAULT", StringComparison.OrdinalIgnoreCase) || string.IsNullOrWhiteSpace(code);
 
-            string url;
-            if (isDefault)
-            {
-                // Specialist Hospital (DEFAULT) uses patientId
-                url = $"{AGENTS}/GetPatientTransactions?patientId={Uri.EscapeDataString(patientNo)}";
-            }
-            else
-            {
-                // Specific hospitals (POTISKUM, DAMAGUM, etc.)
-                int resolvedId = hospitalId ?? ResolveHospitalId(code);
-                url = $"{AGENTS}/GetHospitalPatientTransactions?patientNo={Uri.EscapeDataString(patientNo)}&hospitalId={resolvedId}&hospitalCode={Uri.EscapeDataString(code)}";
-            }
+        //    string url;
+        //    if (isDefault)
+        //    {
+        //        // Specialist Hospital (DEFAULT) uses patientId
+        //        url = $"{AGENTS}/GetPatientTransactions?patientId={Uri.EscapeDataString(patientNo)}";
+        //    }
+        //    else
+        //    {
+        //        // Specific hospitals (POTISKUM, DAMAGUM, etc.)
+        //        int resolvedId = hospitalId ?? ResolveHospitalId(code);
+        //        url = $"{AGENTS}/GetHospitalPatientTransactions?patientNo={Uri.EscapeDataString(patientNo)}&hospitalId={resolvedId}&hospitalCode={Uri.EscapeDataString(code)}";
+        //    }
 
-            Debug.WriteLine($"[HospitalApi] GetPatientTransactions -> GET {url}");
+        //    Debug.WriteLine($"[HospitalApi] GetPatientTransactions -> GET {url}");
 
-            try
-            {
-                using (var response = await Client.GetAsync(url, ct))
-                {
-                    var json = await response.Content.ReadAsStringAsync();
-                    if (!response.IsSuccessStatusCode)
-                        return ApiResult<PatientTransactionResponse>.Fail($"Server error ({response.StatusCode})");
+        //    try
+        //    {
+        //        using (var response = await Client.GetAsync(url, ct))
+        //        {
+        //            var json = await response.Content.ReadAsStringAsync();
+        //            if (!response.IsSuccessStatusCode)
+        //                return ApiResult<PatientTransactionResponse>.Fail($"Server error ({response.StatusCode})");
 
-                    var data = JsonConvert.DeserializeObject<PatientTransactionResponse>(json);
-                    return ApiResult<PatientTransactionResponse>.Ok(data);
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[HospitalApi] SSL/Network Exception: {ex.Message}");
-                return ApiResult<PatientTransactionResponse>.Fail(ex.Message);
-            }
-        }
+        //            var data = JsonConvert.DeserializeObject<PatientTransactionResponse>(json);
+        //            return ApiResult<PatientTransactionResponse>.Ok(data);
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        Debug.WriteLine($"[HospitalApi] SSL/Network Exception: {ex.Message}");
+        //        return ApiResult<PatientTransactionResponse>.Fail(ex.Message);
+        //    }
+        //}
 
         private static int ResolveHospitalId(string code)
         {
@@ -1138,40 +1099,74 @@ namespace YIRSHospital.Services
         }
 
 
-        public static async Task<ApiResult<List<RecentBillTransaction>>> GetRaiseBillHistoryAsync(string email, DateTime startDate, DateTime endDate, string hospitalCode, CancellationToken ct = default)
+      
+        // ── 1. Department Listing ─────────────────────────────────────────────
+        public static async Task<ApiResult<List<HospitalDepartment>>> GetDepartmentsAsync(string hospitalCode, CancellationToken ct = default)
         {
-            // Ensure dates use the required MM-dd-yyyy hyphenated format[cite: 5]
-            string from = Uri.EscapeDataString(startDate.ToString("MM-dd-yyyy", CultureInfo.InvariantCulture));
-            string to = Uri.EscapeDataString(endDate.ToString("MM-dd-yyyy", CultureInfo.InvariantCulture));
-            string safeEmail = Uri.EscapeDataString(email ?? string.Empty);
+            string code = string.IsNullOrWhiteSpace(hospitalCode) ? HospitalContext.Code : hospitalCode;
+            bool isDefault = string.Equals(code, "DEFAULT", StringComparison.OrdinalIgnoreCase) || string.IsNullOrWhiteSpace(code);
 
-            // Route to the agent-specific transaction endpoint[cite: 5]
-            string url = $"{ROOT}/api/TaskPayers/getbillraised?Email={safeEmail}&SearchFrom={from}&SearchTo={to}";
+            // Routes DEFAULT to ListDepartment, and Specific Hospitals to AllHospitalDepartment
+            string url = isDefault
+                ? $"{AGENTS}/ListDepartment"
+                : $"{AGENTS}/AllHospitalDepartment?HospitalCode={Uri.EscapeDataString(code)}";
 
+            return await GetJsonAsync<List<HospitalDepartment>>(url, ct);
+        }
+
+        // ── 2. Patient Transactions Fetching ──────────────────────────────────
+        public static async Task<ApiResult<PatientTransactionResponse>> GetPatientTransactionsAsync(string patientNo, string hospitalCode = null, int? hospitalId = null, CancellationToken ct = default)
+        {
+            string code = string.IsNullOrWhiteSpace(hospitalCode) ? HospitalContext.Code : hospitalCode;
+            bool isDefault = string.Equals(code, "DEFAULT", StringComparison.OrdinalIgnoreCase) || string.IsNullOrWhiteSpace(code);
+
+            string url;
+            if (isDefault)
+            {
+                // DEFAULT uses patientId query param
+                url = $"{AGENTS}/GetPatientTransactions?patientId={Uri.EscapeDataString(patientNo)}";
+            }
+            else
+            {
+                // POTISKUM / DAMAGUM use patientNo & hospitalId/hospitalCode[cite: 6]
+                url = $"{AGENTS}/GetHospitalPatientTransactions?patientNo={Uri.EscapeDataString(patientNo)}";
+                if (hospitalId.HasValue && hospitalId.Value > 0)
+                    url += $"&hospitalId={hospitalId.Value}";
+                else if (!string.IsNullOrWhiteSpace(code))
+                    url += $"&hospitalCode={Uri.EscapeDataString(code)}";
+            }
+
+            return await GetJsonAsync<PatientTransactionResponse>(url, ct);
+        }
+
+        // Add this method to HospitalApiService.cs
+        public static async Task<ApiResult<StaffBillHistoryResponse>> GetStaffBillHistoryAsync(string email, string hospitalCode, CancellationToken ct = default)
+        {
             try
             {
-                // Client inherently uses the _insecureClient SSL-bypass handler[cite: 7]
-                using (var response = await Client.GetAsync(url, ct))
+                string safeEmail = Uri.EscapeDataString(email ?? string.Empty);
+                string safeCode = Uri.EscapeDataString(hospitalCode ?? "DEFAULT");
+                string url = $"{ROOT}/Api/Agents/GetStaffBillHistory?email={safeEmail}&hospitalCode={safeCode}";
+
+                // Utilizing the secure ApiClient.Shared established for SSL bypass[cite: 4, 7]
+                using (var response = await ApiClient.Shared.GetAsync(url, ct))
                 {
                     var json = await response.Content.ReadAsStringAsync();
 
                     if (!response.IsSuccessStatusCode)
-                        return ApiResult<List<RecentBillTransaction>>.Fail($"Server error ({response.StatusCode})");
+                        return ApiResult<StaffBillHistoryResponse>.Fail($"Server error ({response.StatusCode}).");
 
-                    if (string.IsNullOrWhiteSpace(json) || !json.TrimStart().StartsWith("["))
-                        return ApiResult<List<RecentBillTransaction>>.Ok(new List<RecentBillTransaction>());
+                    if (string.IsNullOrWhiteSpace(json))
+                        return ApiResult<StaffBillHistoryResponse>.Fail("Empty response from server.");
 
-                    // Disable automatic date parsing to handle the custom backend formats manually
-                    var settings = new Newtonsoft.Json.JsonSerializerSettings { DateParseHandling = Newtonsoft.Json.DateParseHandling.None };
-                    var parsed = Newtonsoft.Json.JsonConvert.DeserializeObject<List<RecentBillTransaction>>(json, settings) ?? new List<RecentBillTransaction>();
-
-                    return ApiResult<List<RecentBillTransaction>>.Ok(parsed);
+                    var data = JsonConvert.DeserializeObject<StaffBillHistoryResponse>(json);
+                    return ApiResult<StaffBillHistoryResponse>.Ok(data);
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[StaffHistory] Fetch failed: {ex.Message}");
-                return ApiResult<List<RecentBillTransaction>>.Fail(ex.Message);
+                System.Diagnostics.Debug.WriteLine($"[StaffBillHistory] Fetch failed: {ex.Message}");
+                return ApiResult<StaffBillHistoryResponse>.Fail(ex.Message);
             }
         }
     }

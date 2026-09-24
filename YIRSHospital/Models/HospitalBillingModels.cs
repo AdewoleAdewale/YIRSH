@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
+using Xamarin.Forms;
 
 namespace YIRSHospital.Models
 {
@@ -36,8 +37,6 @@ namespace YIRSHospital.Models
         [JsonProperty("dateRaised")] public string DateRaised { get; set; }
     }
 
-    // ── 4. Get Patient Bill Models ──
-
     public class PendingBillService
     {
         [JsonProperty("id")] public int Id { get; set; }
@@ -49,7 +48,6 @@ namespace YIRSHospital.Models
         [JsonProperty("status")] public string Status { get; set; }
     }
 
-    // ── 5. Process Patient Bill Models ──
     public class ProcessPatientBillRequest
     {
         [JsonProperty("HospitalCode")] public string HospitalCode { get; set; }
@@ -79,7 +77,6 @@ namespace YIRSHospital.Models
         [JsonProperty("debitRef")] public string DebitRef { get; set; }
     }
 
-    // ── 6. Confirm Patient Payment Models ──
     public class ConfirmPaymentResponse
     {
         [JsonProperty("message")] public string Message { get; set; }
@@ -96,7 +93,6 @@ namespace YIRSHospital.Models
         [JsonProperty("date")] public string Date { get; set; }
         [JsonProperty("cashedBy")] public string CashedBy { get; set; }
     }
-
 
     public class RecentBillTransaction
     {
@@ -136,7 +132,7 @@ namespace YIRSHospital.Models
         }
 
     }
-        public static class HospitalResponseCodes
+    public static class HospitalResponseCodes
     {
         public const string Success = "00";
 
@@ -196,4 +192,98 @@ namespace YIRSHospital.Models
             }
         }
     }
+    public class Transaction
+    {
+        [JsonProperty("date")]
+        public string Date { get; set; } // POTISKUM / DAMAGUM
+
+        [JsonProperty("datelIst")]
+        public string DateList { get; set; } // DEFAULT
+
+        [JsonIgnore]
+        public string RawDate => !string.IsNullOrWhiteSpace(Date) ? Date : DateList;
+
+        [JsonIgnore]
+        public string FormattedDate
+        {
+            get
+            {
+                string raw = RawDate;
+                if (string.IsNullOrWhiteSpace(raw)) return "N/A";
+
+                // Fallbacks for array of formats[cite: 4]
+                string[] DateFormats = {
+                "yyyy-MM-ddTHH:mm:ss.fffffff", "yyyy-MM-ddTHH:mm:ss",
+                "MM/dd/yyyy hh:mm tt", "dd/MM/yy hh:mm tt"
+            };
+
+                if (DateTime.TryParseExact(raw?.Trim(), DateFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime parsed))
+                    return parsed.ToString("dd MMM yyyy, hh:mm tt");
+                else if (DateTime.TryParse(raw, out DateTime looseParsed))
+                    return looseParsed.ToString("dd MMM yyyy, hh:mm tt");
+
+                return raw;
+            }
+        }
     }
+
+    public class StaffBillHistoryResponse
+    {
+        [JsonProperty("message")] public string Message { get; set; }
+        [JsonProperty("code")] public string Code { get; set; }
+        [JsonProperty("staffName")] public string StaffName { get; set; }
+        [JsonProperty("email")] public string Email { get; set; }
+        [JsonProperty("department")] public string Department { get; set; }
+        [JsonProperty("hospitalName")] public string HospitalName { get; set; }
+        [JsonProperty("hospitalCode")] public string HospitalCode { get; set; }
+        [JsonProperty("filteredStatus")] public string FilteredStatus { get; set; }
+        [JsonProperty("summary")] public StaffBillSummary Summary { get; set; }
+        [JsonProperty("billGroups")] public List<StaffBillGroup> BillGroups { get; set; } = new List<StaffBillGroup>();
+    }
+
+    public class StaffBillSummary
+    {
+        [JsonProperty("totalBills")] public int TotalBills { get; set; }
+        [JsonProperty("totalPending")] public int TotalPending { get; set; }
+        [JsonProperty("totalPaid")] public int TotalPaid { get; set; }
+        [JsonProperty("totalCancelled")] public int TotalCancelled { get; set; }
+        [JsonProperty("grandTotal")] public decimal GrandTotal { get; set; }
+    }
+
+    public class StaffBillGroup
+    {
+        [JsonProperty("billGroupId")] public string BillGroupId { get; set; }
+        [JsonProperty("patientNo")] public string PatientNo { get; set; }
+        [JsonProperty("patientName")] public string PatientName { get; set; }
+        [JsonProperty("department")] public string Department { get; set; }
+        [JsonProperty("dateRaised")] public string DateRaised { get; set; }
+        [JsonProperty("status")] public string Status { get; set; }
+        [JsonProperty("transactionId")] public string TransactionId { get; set; }
+        [JsonProperty("datePaid")] public string DatePaid { get; set; }
+        [JsonProperty("paidBy")] public string PaidBy { get; set; }
+        [JsonProperty("grandTotal")] public decimal GrandTotal { get; set; }
+        [JsonProperty("totalServices")] public int TotalServices { get; set; }
+        [JsonProperty("services")] public List<StaffBillService> Services { get; set; } = new List<StaffBillService>();
+
+        // ── UI Binding Helpers ──
+        [JsonIgnore]
+        public string FormattedDate => DateTime.TryParse(DateRaised, out DateTime d) ? d.ToString("MMM dd, yyyy - hh:mm tt") : DateRaised;
+
+        [JsonIgnore]
+        public Color StatusColor => string.Equals(Status, "Paid", StringComparison.OrdinalIgnoreCase) ? Color.FromHex("#0F6E56") : Color.FromHex("#B7791F");
+
+        [JsonIgnore]
+        public Color StatusBgColor => string.Equals(Status, "Paid", StringComparison.OrdinalIgnoreCase) ? Color.FromHex("#E1F5EE") : Color.FromHex("#FEFCBF");
+
+        [JsonIgnore]
+        public string DisplayId => !string.IsNullOrWhiteSpace(BillGroupId) ? BillGroupId : (TransactionId ?? "N/A");
+    }
+
+    public class StaffBillService
+    {
+        [JsonProperty("id")] public int Id { get; set; }
+        [JsonProperty("serviceName")] public string ServiceName { get; set; }
+        [JsonProperty("amount")] public decimal Amount { get; set; }
+        [JsonProperty("notes")] public string Notes { get; set; }
+    }
+}

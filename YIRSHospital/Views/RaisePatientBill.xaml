@@ -102,7 +102,7 @@
                     <!-- ═════════════════════════════════════════════════════════
      SECTION: SELECT SERVICES (Department Auto-Assigned)
 ══════════════════════════════════════════════════════════ -->
-                    <yummy:PancakeView x:Name="SectionServices" BackgroundColor="White" CornerRadius="14" Padding="16" HasShadow="True">
+                    <yummy:PancakeView x:Name="SectionServices" BackgroundColor="Transparent" CornerRadius="14" Padding="16" >
                         <StackLayout Spacing="14">
 
                             <StackLayout Spacing="2">

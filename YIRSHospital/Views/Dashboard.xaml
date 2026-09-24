@@ -287,25 +287,7 @@
                         </yummy:PancakeView>
                         <!-- ═══════════════ HOSPITAL WORKFLOW ACTIONS ═══════════════ -->
                         <!-- ═══════════════ HOSPITAL WORKFLOW ACTIONS (AGENT) ═══════════════ -->
-                        <StackLayout Spacing="10" Margin="0,16,0,8">
-                            <Label Text="Hospital Services" FontSize="16" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}"/>
-
-                            <Grid ColumnDefinitions="*" RowDefinitions="Auto">
-                                <!-- 4. Patient History (Only action left for Agents) -->
-                                <yummy:PancakeView Grid.Row="0" Grid.Column="0" BackgroundColor="White" CornerRadius="14" Padding="14" HasShadow="True">
-                                    <StackLayout Spacing="8">
-                                        <yummy:PancakeView BackgroundColor="#F3E8FF" CornerRadius="10" WidthRequest="40" HeightRequest="40" HorizontalOptions="Start">
-                                            <Image Source="gooddone" Margin="2" HorizontalOptions="Center" VerticalOptions="Center"/>
-                                        </yummy:PancakeView>
-                                        <Label Text="Patient History" FontSize="14" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}"/>
-                                        <Label Text="All patient transactions" FontSize="11" TextColor="{StaticResource TextSecondary}"/>
-                                    </StackLayout>
-                                    <yummy:PancakeView.GestureRecognizers>
-                                        <TapGestureRecognizer Tapped="PatientHistory_Tapped"/>
-                                    </yummy:PancakeView.GestureRecognizers>
-                                </yummy:PancakeView>
-                            </Grid>
-                        </StackLayout>
+                 
 
                         <Grid Margin="16,10,16,0" ColumnSpacing="8">
                             <Grid.ColumnDefinitions>
