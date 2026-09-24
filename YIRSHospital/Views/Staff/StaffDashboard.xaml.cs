@@ -38,15 +38,7 @@ namespace YIRSHospital.Views.Staff
             await Navigation.PushAsync(new RaisePatientBill());
         }
 
-        private async void OnNavigateProcessBill(object sender, EventArgs e)
-        {
-            await Navigation.PushAsync(new ProcessPatientBill());
-        }
 
-        private async void OnNavigateConfirmPayment(object sender, EventArgs e)
-        {
-            await Navigation.PushAsync(new ConfirmPatientPayment());
-        }
 
         private async void OnNavigatePatientHistory(object sender, EventArgs e)
         {
@@ -55,7 +47,7 @@ namespace YIRSHospital.Views.Staff
 
         // ── Utility Actions ───────────────────────────────────────────
 
-        private async void TestPrinter_Tapped(object sender, EventArgs e)
+        private async void TestPrinter_Tapped()
         {
             try
             {
@@ -79,7 +71,7 @@ namespace YIRSHospital.Views.Staff
 
         private async void Settings_Tapped(object sender, EventArgs e)
         {
-            var action = await DisplayActionSheet("Settings", "Cancel", null, "Change PIN", "Change Password", "Log Out");
+            var action = await DisplayActionSheet("Settings", "Cancel", null, "Test Print","Change PIN", "Change Password", "Log Out");
 
             if (action == "Change PIN")
                 await Navigation.PushModalAsync(new ChangePin());
@@ -87,6 +79,8 @@ namespace YIRSHospital.Views.Staff
                 await Navigation.PushModalAsync(new ChangePassword());
             else if (action == "Log Out")
                 PerformLogout();
+            else if (action == "Test Pint")
+                TestPrinter_Tapped();
         }
 
         private void PerformLogout()
@@ -103,6 +97,30 @@ namespace YIRSHospital.Views.Staff
 
             public string Greeting => GetGreeting();
             public string StaffName => LoginPage.Name ?? "Staff Member";
+
+            /// <summary>Two-letter initials for the avatar badge, e.g. "Test Musa" → "TM".</summary>
+            public string Initials => BuildInitials(LoginPage.Name);
+
+            /// <summary>Sourced from StaffContext.Department, set at login from agent.department
+            /// (e.g. "RADIOLOGY") and restored on app restart — see App.TryRestoreSessionAsync.</summary>
+            public string DepartmentLabel =>
+                string.IsNullOrWhiteSpace(StaffContext.Department) ? "No department" : StaffContext.Department;
+
+            /// <summary>Sourced from HospitalContext, set at login from agent.hospitalName
+            /// (e.g. "YOBE STATE SPECIALIST HOSPITAL").</summary>
+            public string HospitalLabel => HospitalContext.Label;
+
+            public string SecureSessionLabel => "Signed in securely · " + (LoginPage.ValidUserMail ?? "");
+
+            private static string BuildInitials(string fullName)
+            {
+                if (string.IsNullOrWhiteSpace(fullName)) return "S";
+
+                var parts = fullName.Trim().Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length == 1) return parts[0].Substring(0, 1).ToUpperInvariant();
+
+                return (parts[0].Substring(0, 1) + parts[parts.Length - 1].Substring(0, 1)).ToUpperInvariant();
+            }
 
             public ObservableCollection<RecentStaffBillModel> RecentBills { get; } = new ObservableCollection<RecentStaffBillModel>();
             public async Task LoadRecentBillsAsync()
