@@ -852,16 +852,16 @@ namespace YIRSHospital.Views
                 {
                     try
                     {
-                        var catalogue = await HospitalApiService.GetDepartmentServicesAsync(revHead, dept.name);
+                        var catalogue = await HospitalApiService.GetDepartmentServicesAsyncs(revHead, dept.name);
 
                         if (!catalogue.Success || catalogue.Data == null) continue;
 
-                        foreach (var item in catalogue.Data.Services)
+                        foreach (var item in catalogue.Data)
                         {
                             var service = new ServiceItem
                             {
-                                serviceName = item.ServiceName,
-                                amount = item.Amount,
+                                serviceName = item.serviceName,
+                                amount = item.amount,
                                 DepartmentName = dept.name,
                                 Quantity = 1,
                                 IsSelected = false

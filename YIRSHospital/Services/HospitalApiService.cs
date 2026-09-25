@@ -641,8 +641,7 @@ namespace YIRSHospital.Services
         }
 
 
-        public static async Task<ApiResult<PatientRegistrationResult>> RegisterPatientAsync(
-            PatientRegistration data, CancellationToken ct = default(CancellationToken))
+        public static async Task<ApiResult<PatientRegistrationResult>> RegisterPatientAsync( PatientRegistration data, CancellationToken ct = default(CancellationToken))
         {
             if (data == null)
                 return ApiResult<PatientRegistrationResult>.Fail("Nothing to register.");
@@ -1085,6 +1084,17 @@ namespace YIRSHospital.Services
 
             var result = await GetJsonAsync<DepartmentServicesResponse>(url, ct);
             return Interpret(result, r => r.Code, r => r.Message);
+        }
+
+
+        public static async Task<ApiResult<List<ServiceCatalogItem>>> GetDepartmentServicesAsyncs(
+       string revenueHead, string department, CancellationToken ct = default(CancellationToken))
+        {
+            var url = ROOT + "/api/Agents/ListRevServices"
+                    + "?RevHead=" + Uri.EscapeDataString(revenueHead ?? string.Empty)
+                    + "&Dept=" + Uri.EscapeDataString(department ?? string.Empty);
+
+            return await GetJsonAsync<List<ServiceCatalogItem>>(url, ct);
         }
         // ── 6. Confirm Patient Payment ─────────────────────────────────────
         public static async Task<ApiResult<ConfirmPaymentResponse>> ConfirmPatientPaymentAsync(
