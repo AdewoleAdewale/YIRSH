@@ -1,4 +1,5 @@
 ﻿using Acr.UserDialogs;
+using Android.PrintServices;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -1552,9 +1553,11 @@ namespace YIRSHospital.Views
                 using (var printer = new BluetoothPrinterService(use80mm: false))
                 {
                     await printer.PrintReceiptAsync(
-                        data,
-                        branding.ResolveLogoAsset(),
-                        branding.WatermarkText);
+     data,
+     logoAssetName: HospitalBranding.Current.LogoAsset,
+     watermarkMode: WatermarkMode.Both,
+     watermarkText: "YOBE HOSPITAL",
+     watermarkLogoAssetName: HospitalBranding.Current.LogoAsset);
                 }
 
                 await DisplayAlert("Print Status",

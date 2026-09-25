@@ -297,56 +297,56 @@ namespace YIRSHospital.Views
                 return;
             }
 
-            try
-            {
-                UserDialogs.Instance.ShowLoading("Printing verification slip…");
+            //try
+            //{
+            //    UserDialogs.Instance.ShowLoading("Printing verification slip…");
 
-                var branding = HospitalBranding.Current;
-                var data = _currentResult;
+            //    var branding = HospitalBranding.Current;
+            //    var data = _currentResult;
 
-                var items = new List<ReceiptItem>
-                {
-                    new ReceiptItem { Description = "Patient Name", SubText = data.PatientName },
-                    new ReceiptItem { Description = "Patient No", SubText = data.PatientNo },
-                    new ReceiptItem { Description = "Department", SubText = data.Department },
-                    new ReceiptItem { Description = "Service", SubText = data.ServiceName, Amount = data.Amount },
-                    new ReceiptItem { Description = "Payment Method", SubText = data.PaymentMethod },
-                    new ReceiptItem { Description = "Cashed By", SubText = data.CashedBy },
-                };
+            //    var items = new List<ReceiptItem>
+            //    {
+            //        new ReceiptItem { Description = "Patient Name", SubText = data.PatientName },
+            //        new ReceiptItem { Description = "Patient No", SubText = data.PatientNo },
+            //        new ReceiptItem { Description = "Department", SubText = data.Department },
+            //        new ReceiptItem { Description = "Service", SubText = data.ServiceName, Amount = data.Amount },
+            //        new ReceiptItem { Description = "Payment Method", SubText = data.PaymentMethod },
+            //        new ReceiptItem { Description = "Cashed By", SubText = data.CashedBy },
+            //    };
 
-                var receipt = new ReceiptData
-                {
-                    StoreName = branding.StoreName,
-                    StorePhone = branding.Phone,
-                    ReceiptBannerText = "PAYMENT VERIFICATION SLIP",
-                    ReceiptNumber = string.IsNullOrWhiteSpace(data.TransactionId) ? "N/A" : data.TransactionId,
-                    AgentName = LoginPage.Name,
-                    CollectionPoint = data.Department,
-                    PrintDate = DateTime.Now,
-                    Items = items,
-                    TotalAmount = data.Amount,
-                    FooterLine2 = App.PrinterFooter ?? "POWERED BY OSOFTPAY"
-                };
+            //    var receipt = new ReceiptData
+            //    {
+            //        StoreName = branding.StoreName,
+            //        StorePhone = branding.Phone,
+            //        ReceiptBannerText = "PAYMENT VERIFICATION SLIP",
+            //        ReceiptNumber = string.IsNullOrWhiteSpace(data.TransactionId) ? "N/A" : data.TransactionId,
+            //        AgentName = LoginPage.Name,
+            //        CollectionPoint = data.Department,
+            //        PrintDate = DateTime.Now,
+            //        Items = items,
+            //        TotalAmount = data.Amount,
+            //        FooterLine2 = App.PrinterFooter ?? "POWERED BY OSOFTPAY"
+            //    };
 
-                using (var printer = new BluetoothPrinterService(use80mm: false))
-                {
-                    await printer.PrintReceiptAsync(receipt, branding.ResolveLogoAsset(), branding.WatermarkText);
-                }
+            //    using (var printer = new BluetoothPrinterService(use80mm: false))
+            //    {
+            //        await printer.PrintReceiptAsync(receipt, branding.ResolveLogoAsset(), branding.WatermarkText);
+            //    }
 
-                UserDialogs.Instance.Toast("Verification slip printed");
-            }
-            catch (PrinterException pex)
-            {
-                await DisplayAlert("Printer Error", pex.Message, "OK");
-            }
-            catch (Exception ex)
-            {
-                await DisplayAlert("Print Failed", ex.Message, "OK");
-            }
-            finally
-            {
-                UserDialogs.Instance.HideLoading();
-            }
+            //    UserDialogs.Instance.Toast("Verification slip printed");
+            //}
+            //catch (PrinterException pex)
+            //{
+            //    await DisplayAlert("Printer Error", pex.Message, "OK");
+            //}
+            //catch (Exception ex)
+            //{
+            //    await DisplayAlert("Print Failed", ex.Message, "OK");
+            //}
+            //finally
+            //{
+            //    UserDialogs.Instance.HideLoading();
+            //}
         }
     }
 }

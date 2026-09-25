@@ -35,10 +35,16 @@ namespace YIRSHospital.Services
         private const int INTER_CHUNK_DELAY = 20;
         private const int FLUSH_SETTLE_MS = 2_500;
 
+        private const int RASTER_BAND_HEIGHT = 256; // Add this constant to the Constants region near the other printer-related constants
+        private const int BODY_PADDING = 24;
 
         private const int WATERMARK_GRAY = 185;
-        private const float WATERMARK_TEXT_SIZE = 52f;
-        private const int WATERMARK_HEIGHT = 88;
+        private const float WATERMARK_TEXT_MAX_SIZE = 72f;
+        private const float WATERMARK_TEXT_MIN_SIZE = 28f;
+        private const int WATERMARK_MIN_HEIGHT = 88;
+        private const int WATERMARK_PADDING = 24;
+        private const int WATERMARK_LOGO_ALPHA = 90;          // 0-255; lower = fainter
+        private const float WATERMARK_LOGO_WIDTH_RATIO = 0.55f; // logo width as a fraction of paper width
 
         #endregion
 
@@ -110,10 +116,23 @@ namespace YIRSHospital.Services
         //  PUBLIC API
         // ══════════════════════════════════════════════════════════
 
+        /// <param name="receipt">The receipt content to print.</param>
+        /// <param name="logoAssetName">Header logo shown at the top of the receipt.</param>
+        /// <param name="watermarkMode">
+        ///   Whether to print a watermark, and whether it uses text, the app
+        ///   logo, or both. Defaults to <see cref="WatermarkMode.Text"/>.
+        /// </param>
+        /// <param name="watermarkText">Text shown when the mode includes text.</param>
+        /// <param name="watermarkLogoAssetName">
+        ///   Logo asset shown (large, faint) when the mode includes the logo.
+        ///   Defaults to <paramref name="logoAssetName"/> when not supplied.
+        /// </param>
         public async Task PrintReceiptAsync(
             ReceiptData receipt,
             string logoAssetName = "Logo.png",
-            string watermarkText = "YOBE STATE HOSPITAL",
+            WatermarkMode watermarkMode = WatermarkMode.Text,
+            string watermarkText = "YOBE HOSPITAL",
+            string watermarkLogoAssetName = null,
             CancellationToken cancellationToken = default)
         {
             RequireBluetoothPermissions();
@@ -122,7 +141,12 @@ namespace YIRSHospital.Services
             var device = FindPrinterDevice(adapter);
 
             var buffer = await Task.Run(
-                () => BuildPrintBuffer(receipt, logoAssetName, watermarkText),
+                () => BuildPrintBuffer(
+                    receipt,
+                    logoAssetName,
+                    watermarkMode,
+                    watermarkText,
+                    watermarkLogoAssetName ?? logoAssetName),
                 cancellationToken);
 
             var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -371,121 +395,39 @@ namespace YIRSHospital.Services
         //  RECEIPT BUFFER
         // ══════════════════════════════════════════════════════════
 
+        /// <summary>
+        /// Builds the full receipt as ESC/POS bytes. The header, banner,
+        /// metadata, items, totals and footer are rendered as ONE composited
+        /// bitmap with the watermark drawn first as a background layer, so
+        /// the watermark sits physically underneath that entire block rather
+        /// than as a separate stamp elsewhere on the slip. The QR code keeps
+        /// using the printer's own native QR command afterwards — it needs
+        /// to stay crisp/undithered to remain reliably scannable, so it is
+        /// not composited into the watermark layer.
+        /// </summary>
         private byte[] BuildPrintBuffer(
       ReceiptData receipt,
       string logoAssetName,
-      string watermarkText)
+      WatermarkMode watermarkMode,
+      string watermarkText,
+      string watermarkLogoAssetName)
         {
-            // Pre-build the watermark bytes once; reuse for every section.
-            byte[] wm = null;
-            if (!string.IsNullOrWhiteSpace(watermarkText))
-                wm = BuildWatermarkCommand(watermarkText);
-
             var ms = new MemoryStream(8192);
             try
             {
                 ms.Write(CMD_INIT);
 
-                ms.Write(CMD_ALIGN_CENTER);
-                ms.WriteText(Divider('=', _charsPerLine) + "\n");
-
-                if (!string.IsNullOrWhiteSpace(logoAssetName))
+                // ── Composited body: header → items → totals → footer, ───────
+                // ── with the watermark drawn underneath as a background. ─────
+                byte[] body = BuildCompositedBodyRaster(
+                    receipt, logoAssetName, watermarkMode, watermarkText, watermarkLogoAssetName);
+                if (body != null)
                 {
-                    var logoCmd = TryBuildLogoCommand(logoAssetName, maxWidth: 180);
-                    if (logoCmd != null) ms.Write(logoCmd);
+                    ms.Write(CMD_ALIGN_CENTER);
+                    ms.Write(body);
                 }
 
-                ms.Write(CMD_ALIGN_CENTER);
-                ms.Write(CMD_BOLD_ON);
-                ms.WriteText(receipt.StoreName + "\n");
-                ms.Write(CMD_BOLD_OFF);
-
-                if (!string.IsNullOrWhiteSpace(receipt.StorePhone))
-                    ms.WriteText(receipt.StorePhone + "\n");
-
-                ms.WriteText(Divider('=', _charsPerLine) + "\n");
-
-                // ── Receipt banner ───────────────────────────────────────────
-                ms.Write(CMD_ALIGN_CENTER);
-                ms.Write(CMD_BOLD_ON);
-                ms.Write(CMD_DWIDTH_ON);
-                ms.WriteText((receipt.ReceiptBannerText ?? "OFFICIAL RECEIPT") + "\n");
-                ms.WriteByte(0x1D); ms.WriteByte(0x21); ms.WriteByte(0x00); // reset scale
-                ms.Write(CMD_BOLD_OFF);
-                ms.WriteText(Divider('=', _charsPerLine) + "\n");
-
-
-                // ── Metadata ─────────────────────────────────────────────────
-                ms.Write(CMD_ALIGN_LEFT);
-                ms.WriteText(Col("Date", receipt.PrintDate.ToString("dd/MM/yyyy HH:mm:ss"), _charsPerLine) + "\n");
-                ms.WriteText(Col("Ref", receipt.ReceiptNumber, _charsPerLine) + "\n");
-                ms.WriteText(Col("Agent", receipt.AgentName, _charsPerLine) + "\n");
-                ms.WriteText(Col("Point", receipt.CollectionPoint, _charsPerLine) + "\n");
-
-                if (!string.IsNullOrWhiteSpace(receipt.Consultant))
-                    ms.WriteText(Col("Consult", receipt.Consultant, _charsPerLine) + "\n");
-                if (!string.IsNullOrWhiteSpace(receipt.SuperAgent))
-                    ms.WriteText(Col("S.Agent", receipt.SuperAgent, _charsPerLine) + "\n");
-
-                ms.WriteText(Divider('-', _charsPerLine) + "\n");
-
-
-                // ── Items ────────────────────────────────────────────────────
-                foreach (var item in receipt.Items)
-                {
-                    if (item.Amount == 0m && !string.IsNullOrWhiteSpace(item.SubText))
-                    {
-                        // Info-only row: label left-aligned, value right of colon
-                        ms.Write(CMD_ALIGN_LEFT);
-                        ms.WriteText(Col(item.Description, item.SubText, _charsPerLine) + "\n");
-                    }
-                    else
-                    {
-                        ms.Write(CMD_ALIGN_LEFT);
-                        ms.WriteText(ColTwoRight(
-                            item.Description,
-                            "N" + item.Amount.ToString("###,###.00"),
-                            _charsPerLine) + "\n");
-
-                        if (!string.IsNullOrWhiteSpace(item.SubText))
-                        {
-                            ms.Write(CMD_FONT_SMALL);
-                            ms.WriteText("  " + item.SubText + "\n");
-                            ms.Write(CMD_FONT_NORMAL);
-                        }
-                    }
-                }
-
-                ms.WriteText(Divider('-', _charsPerLine) + "\n");
-
-
-                // ── Totals ───────────────────────────────────────────────────
-                ms.Write(CMD_ALIGN_LEFT);
-                ms.Write(CMD_BOLD_ON);
-
-                if (receipt.TotalAmount > 0m)
-                    ms.WriteText(ColTwoRight("TOTAL AMOUNT",
-                        "N" + receipt.TotalAmount.ToString("###,###.00"), _charsPerLine) + "\n");
-
-                if (receipt.AmountPaid > 0m)
-                    ms.WriteText(ColTwoRight("AMOUNT PAID",
-                        "N" + receipt.AmountPaid.ToString("###,###.00"), _charsPerLine) + "\n");
-
-                if (receipt.AmountLeft > 0m)
-                    ms.WriteText(ColTwoRight("BALANCE DUE",
-                        "N" + receipt.AmountLeft.ToString("###,###.00"), _charsPerLine) + "\n");
-
-                ms.Write(CMD_BOLD_OFF);
-                ms.WriteText(Divider('=', _charsPerLine) + "\n");
-
-
-                // ── QR Code (centred) ────────────────────────────────────────
-                // CMD_ALIGN_CENTER controls text alignment but does NOT move the
-                // QR raster block itself on many thermal firmware builds.
-                // We therefore compute a left margin so the QR module sits in the
-                // middle of the paper, then reset it to 0 afterwards.
-
-                ms.Write(CMD_ALIGN_CENTER);
+                // ── QR Code (native ESC/POS, kept crisp for reliable scans) ───
                 if (!string.IsNullOrWhiteSpace(receipt.BarcodeLabel))
                 {
                     ms.Write(CMD_ALIGN_CENTER);
@@ -507,13 +449,6 @@ namespace YIRSHospital.Services
                     ms.WriteText(Divider('-', _charsPerLine) + "\n");
                 }
 
-                ms.Write(CMD_ALIGN_CENTER);
-                ms.Write(CMD_LF);
-                ms.Write(CMD_BOLD_ON);
-                ms.WriteText((receipt.FooterLine2 ?? "POWERED BY OSOFTPAY") + "\n");
-                ms.Write(CMD_BOLD_OFF);
-                ms.WriteText(Divider('=', _charsPerLine) + "\n");
-
                 ms.Write(CMD_ALIGN_LEFT);
                 ms.Write(CMD_LF);
                 ms.Write(CMD_LF);
@@ -525,38 +460,334 @@ namespace YIRSHospital.Services
         }
 
         // ══════════════════════════════════════════════════════════
-        //  WATERMARK
+        //  COMPOSITED BODY
+        //  (content rendered on top of a watermark that is drawn
+        //  first, so it sits physically underneath everything else)
         // ══════════════════════════════════════════════════════════
 
-        private byte[] BuildWatermarkCommand(string text)
+        private byte[] BuildCompositedBodyRaster(
+            ReceiptData receipt,
+            string logoAssetName,
+            WatermarkMode watermarkMode,
+            string watermarkText,
+            string watermarkLogoAssetName)
+        {
+            int width = (_printerDots / 8) * 8;
+
+            var normalPaint = new Paint(PaintFlags.AntiAlias);
+            normalPaint.SetTypeface(Typeface.Monospace);
+
+            var boldPaint = new Paint(PaintFlags.AntiAlias);
+            boldPaint.SetTypeface(Typeface.Create(Typeface.Monospace, TypefaceStyle.Bold));
+
+            var bannerPaint = new Paint(PaintFlags.AntiAlias);
+            bannerPaint.SetTypeface(Typeface.Create(Typeface.Monospace, TypefaceStyle.Bold));
+
+            float lineHeight = MonoLineHeight(normalPaint);
+
+            bannerPaint.TextSize = normalPaint.TextSize * 1.9f;
+            float bannerLineHeight = MonoLineHeight(bannerPaint);
+
+            Bitmap headerLogo = string.IsNullOrWhiteSpace(logoAssetName)
+                ? null
+                : LoadLogoBitmap(logoAssetName, (int)(width * 0.45f));
+
+            try
+            {
+                // Pass 1 — measure only (canvas = null) to find the total height.
+                int height = LayoutBody(null, receipt, headerLogo, width,
+                    normalPaint, boldPaint, bannerPaint, lineHeight, bannerLineHeight);
+
+                Bitmap bmp = Bitmap.CreateBitmap(width, height, Bitmap.Config.Argb8888);
+                try
+                {
+                    Canvas canvas = new Canvas(bmp);
+                    canvas.DrawColor(Color.White);
+
+                    // Watermark drawn FIRST → everything drawn afterwards sits on top of it.
+                    DrawWatermarkBackground(canvas, width, height, watermarkMode, watermarkText, watermarkLogoAssetName);
+
+                    // Pass 2 — draw the actual receipt content over the watermark.
+                    LayoutBody(canvas, receipt, headerLogo, width,
+                        normalPaint, boldPaint, bannerPaint, lineHeight, bannerLineHeight);
+
+                    byte[] raster = ConvertToMonochromeFloydSteinberg(bmp, width, height);
+                    return WrapRasterInBands(raster, width, height);
+                }
+                finally { bmp.Recycle(); }
+            }
+            catch (Exception ex)
+            {
+                Log($"Composited body failed, printing without it – {ex.Message}");
+                return null;
+            }
+            finally
+            {
+                headerLogo?.Recycle();
+                normalPaint.Dispose();
+                boldPaint.Dispose();
+                bannerPaint.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Lays out the whole receipt body top to bottom. When
+        /// <paramref name="canvas"/> is null this only measures and returns
+        /// the total height needed; when a canvas is supplied it draws the
+        /// exact same content onto it. Keeping both passes in one method
+        /// guarantees the measured height and the drawn content never drift
+        /// apart.
+        /// </summary>
+        private int LayoutBody(
+            Canvas canvas, ReceiptData receipt, Bitmap headerLogo, int width,
+            Paint normalPaint, Paint boldPaint, Paint bannerPaint,
+            float lineHeight, float bannerLineHeight)
+        {
+            int y = BODY_PADDING;
+
+            y = DrawCentered(canvas, Divider('=', _charsPerLine), normalPaint, width, y, lineHeight);
+
+            if (headerLogo != null)
+            {
+                if (canvas != null)
+                    canvas.DrawBitmap(headerLogo, (width - headerLogo.Width) / 2f, y, null);
+                y += headerLogo.Height + BODY_PADDING / 2;
+            }
+
+            y = DrawCentered(canvas, receipt.StoreName, boldPaint, width, y, lineHeight);
+            if (!string.IsNullOrWhiteSpace(receipt.StorePhone))
+                y = DrawCentered(canvas, receipt.StorePhone, normalPaint, width, y, lineHeight);
+            y = DrawCentered(canvas, Divider('=', _charsPerLine), normalPaint, width, y, lineHeight);
+
+            // ── Receipt banner ───────────────────────────────────────────
+            y = DrawCentered(canvas, receipt.ReceiptBannerText ?? "OFFICIAL RECEIPT", bannerPaint, width, y, bannerLineHeight);
+            y = DrawCentered(canvas, Divider('=', _charsPerLine), normalPaint, width, y, lineHeight);
+
+            // ── Metadata ─────────────────────────────────────────────────
+            y = DrawLeft(canvas, Col("Date", receipt.PrintDate.ToString("dd/MM/yyyy HH:mm:ss"), _charsPerLine), normalPaint, y, lineHeight);
+            y = DrawLeft(canvas, Col("Ref", receipt.ReceiptNumber, _charsPerLine), normalPaint, y, lineHeight);
+            y = DrawLeft(canvas, Col("Agent", receipt.AgentName, _charsPerLine), normalPaint, y, lineHeight);
+            y = DrawLeft(canvas, Col("Point", receipt.CollectionPoint, _charsPerLine), normalPaint, y, lineHeight);
+
+            if (!string.IsNullOrWhiteSpace(receipt.Consultant))
+                y = DrawLeft(canvas, Col("Consult", receipt.Consultant, _charsPerLine), normalPaint, y, lineHeight);
+            if (!string.IsNullOrWhiteSpace(receipt.SuperAgent))
+                y = DrawLeft(canvas, Col("S.Agent", receipt.SuperAgent, _charsPerLine), normalPaint, y, lineHeight);
+
+            y = DrawCentered(canvas, Divider('-', _charsPerLine), normalPaint, width, y, lineHeight);
+
+            // ── Items ────────────────────────────────────────────────────
+            foreach (var item in receipt.Items)
+            {
+                if (item.Amount == 0m && !string.IsNullOrWhiteSpace(item.SubText))
+                {
+                    y = DrawLeft(canvas, Col(item.Description, item.SubText, _charsPerLine), normalPaint, y, lineHeight);
+                }
+                else
+                {
+                    y = DrawLeft(canvas, ColTwoRight(
+                        item.Description,
+                        "N" + item.Amount.ToString("###,###.00"),
+                        _charsPerLine), normalPaint, y, lineHeight);
+
+                    if (!string.IsNullOrWhiteSpace(item.SubText))
+                        y = DrawLeft(canvas, "  " + item.SubText, normalPaint, y, lineHeight);
+                }
+            }
+
+            y = DrawCentered(canvas, Divider('-', _charsPerLine), normalPaint, width, y, lineHeight);
+
+            // ── Totals ───────────────────────────────────────────────────
+            if (receipt.TotalAmount > 0m)
+                y = DrawLeft(canvas, ColTwoRight("TOTAL AMOUNT",
+                    "N" + receipt.TotalAmount.ToString("###,###.00"), _charsPerLine), boldPaint, y, lineHeight);
+
+            if (receipt.AmountPaid > 0m)
+                y = DrawLeft(canvas, ColTwoRight("AMOUNT PAID",
+                    "N" + receipt.AmountPaid.ToString("###,###.00"), _charsPerLine), boldPaint, y, lineHeight);
+
+            if (receipt.AmountLeft > 0m)
+                y = DrawLeft(canvas, ColTwoRight("BALANCE DUE",
+                    "N" + receipt.AmountLeft.ToString("###,###.00"), _charsPerLine), boldPaint, y, lineHeight);
+
+            y = DrawCentered(canvas, Divider('=', _charsPerLine), normalPaint, width, y, lineHeight);
+
+            y = DrawCentered(canvas, receipt.FooterLine2 ?? "POWERED BY OSOFTPAY", boldPaint, width, y, lineHeight);
+            y = DrawCentered(canvas, Divider('=', _charsPerLine), normalPaint, width, y, lineHeight);
+
+            y += BODY_PADDING;
+            return y;
+        }
+
+        private static int DrawCentered(Canvas canvas, string text, Paint paint, int width, int y, float lineHeight)
+        {
+            if (canvas != null)
+            {
+                float tw = paint.MeasureText(text);
+                canvas.DrawText(text, (width - tw) / 2f, y + lineHeight * 0.8f, paint);
+            }
+            return y + (int)Math.Ceiling(lineHeight);
+        }
+
+        private static int DrawLeft(Canvas canvas, string text, Paint paint, int y, float lineHeight)
+        {
+            if (canvas != null)
+                canvas.DrawText(text, 4f, y + lineHeight * 0.8f, paint);
+            return y + (int)Math.Ceiling(lineHeight);
+        }
+
+        /// <summary>Sizes a monospace Paint so that <paramref name="charsPerLine"/> characters fill the paper width.</summary>
+        private static void CalibrateMonospace(Paint paint, int charsPerLine, int widthDots)
+        {
+            paint.TextSize = 24f;
+            float measured = paint.MeasureText(new string('0', charsPerLine));
+            paint.TextSize = 24f * (widthDots * 0.96f) / measured;
+        }
+
+        private static float MonoLineHeight(Paint paint)
+        {
+            var fm = paint.GetFontMetrics();
+            return (fm.Descent - fm.Ascent) * 1.2f;
+        }
+
+        private static Bitmap LoadLogoBitmap(string assetName, int maxWidthDots)
         {
             try
             {
-                int width = (_printerDots / 8) * 8;
-                int height = WATERMARK_HEIGHT;
+                var context = Android.App.Application.Context;
+                Bitmap src;
+                using (var stream = context.Assets.Open(assetName))
+                    src = BitmapFactory.DecodeStream(stream);
+                if (src == null) return null;
 
-                Bitmap bmp = Bitmap.CreateBitmap(width, height, Bitmap.Config.Argb8888);
+                int targetW = Math.Max(8, (Math.Min(src.Width, maxWidthDots) / 8) * 8);
+                float scale = (float)targetW / src.Width;
+                int targetH = Math.Max(1, (int)(src.Height * scale));
+
+                var scaled = Bitmap.CreateScaledBitmap(src, targetW, targetH, true);
+                if (scaled != src) src.Recycle();
+                return scaled;
+            }
+            catch (Exception ex)
+            {
+                Log($"Header logo skipped – {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Splits one tall raster into printer-friendly bands (GS v 0 per
+        /// band, sent back to back with no gap) instead of one huge image
+        /// command — some Bluetooth thermal printers reject or overflow on
+        /// a single very tall raster block.
+        /// </summary>
+        private static byte[] WrapRasterInBands(byte[] raster, int width, int height)
+        {
+            int widthBytes = width / 8;
+            var ms = new MemoryStream(raster.Length + 64);
+            try
+            {
+                int y = 0;
+                while (y < height)
+                {
+                    int bandH = Math.Min(RASTER_BAND_HEIGHT, height - y);
+                    byte xL = (byte)(widthBytes & 0xFF);
+                    byte xH = (byte)((widthBytes >> 8) & 0xFF);
+                    byte yL = (byte)(bandH & 0xFF);
+                    byte yH = (byte)((bandH >> 8) & 0xFF);
+                    ms.Write(new byte[] { 0x1D, 0x76, 0x30, 0x00, xL, xH, yL, yH });
+
+                    int offset = y * widthBytes;
+                    int count = bandH * widthBytes;
+                    ms.Write(raster, offset, count);
+
+                    y += bandH;
+                }
+                return ms.ToArray();
+            }
+            finally { ms.Dispose(); }
+        }
+
+        // ══════════════════════════════════════════════════════════
+        //  WATERMARK
+        // ══════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Builds a single raster block containing the watermark, drawn once
+        /// (never tiled/repeated). Depending on <paramref name="mode"/> it
+        /// contains large faint text, a large faint version of the app logo,
+        /// or the logo stacked above the text. Returns null when the mode is
+        /// <see cref="WatermarkMode.None"/>, or when there is nothing to draw
+        /// (e.g. Text mode with empty text, or the logo asset fails to load).
+        /// </summary>
+        private byte[] BuildWatermarkBlock(WatermarkMode mode, string text, string logoAssetName)
+        {
+            if (mode == WatermarkMode.None) return null;
+
+            bool wantLogo = mode == WatermarkMode.Logo || mode == WatermarkMode.Both;
+            bool wantText = (mode == WatermarkMode.Text || mode == WatermarkMode.Both)
+                             && !string.IsNullOrWhiteSpace(text);
+
+            if (!wantLogo && !wantText) return null; // e.g. Text mode with no text supplied
+
+            Bitmap logoBmp = null;
+            Paint textPaint = null;
+            Bitmap bmp = null;
+
+            try
+            {
+                int width = (_printerDots / 8) * 8;
+
+                if (wantLogo)
+                {
+                    logoBmp = TryLoadWatermarkLogo(logoAssetName, width);
+                    if (logoBmp == null) wantLogo = false; // fall through to text-only if it fails
+                }
+
+                if (!wantLogo && !wantText) return null; // logo failed and no text fallback
+
+                float textSize = 0f;
+                if (wantText)
+                {
+                    textPaint = new Paint { AntiAlias = true };
+                    textSize = FitWatermarkTextSize(textPaint, text, width);
+                    textPaint.TextSize = textSize;
+                    textPaint.SetARGB(255, WATERMARK_GRAY, WATERMARK_GRAY, WATERMARK_GRAY);
+                }
+
+                int logoH = logoBmp?.Height ?? 0;
+                int textBlockH = wantText ? (int)(textSize * 1.35f) : 0;
+                int sections = (wantLogo ? 1 : 0) + (wantText ? 1 : 0);
+                int height = Math.Max(
+                    WATERMARK_MIN_HEIGHT,
+                    logoH + textBlockH + WATERMARK_PADDING * (sections + 1));
+
+                bmp = Bitmap.CreateBitmap(width, height, Bitmap.Config.Argb8888);
                 Canvas canvas = new Canvas(bmp);
                 canvas.DrawColor(Color.White);
 
-                Paint paint = new Paint { AntiAlias = true };
-                paint.TextSize = WATERMARK_TEXT_SIZE;
-                paint.SetARGB(255, WATERMARK_GRAY, WATERMARK_GRAY, WATERMARK_GRAY);
+                int cursorY = WATERMARK_PADDING;
 
-                float tw = paint.MeasureText(text);
-                float x = (width - tw) / 2f;
-                float y = height * 0.70f;
+                if (wantLogo)
+                {
+                    var logoPaint = new Paint { AntiAlias = true, FilterBitmap = true };
+                    logoPaint.Alpha = WATERMARK_LOGO_ALPHA; // composited onto white → light gray
+                    float lx = (width - logoBmp.Width) / 2f;
+                    canvas.DrawBitmap(logoBmp, lx, cursorY, logoPaint);
+                    logoPaint.Dispose();
+                    cursorY += logoBmp.Height + WATERMARK_PADDING;
+                }
 
-                canvas.Save();
-                canvas.Rotate(-14f, width / 2f, height / 2f);
-                canvas.DrawText(text, x, y, paint);
-                canvas.Restore();
+                if (wantText)
+                {
+                    float tw = textPaint.MeasureText(text);
+                    float tx = (width - tw) / 2f;
+                    float ty = cursorY + textSize * 0.85f;
+                    canvas.DrawText(text, tx, ty, textPaint);
+                }
 
                 int widthBytes = width / 8;
                 byte[] raster = ConvertToMonochromeFloydSteinberg(bmp, width, height);
-
-                bmp.Recycle();
-                paint.Dispose();
 
                 var ms = new MemoryStream();
                 try
@@ -575,6 +806,65 @@ namespace YIRSHospital.Services
             catch (Exception ex)
             {
                 Log($"Watermark skipped – {ex.Message}");
+                return null;
+            }
+            finally
+            {
+                logoBmp?.Recycle();
+                bmp?.Recycle();
+                textPaint?.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Shrinks the watermark text size until it fits on one line within
+        /// ~88% of the paper width, so "large text" never wraps or gets
+        /// clipped on narrower (58 mm) paper.
+        /// </summary>
+        private static float FitWatermarkTextSize(Paint paint, string text, int maxWidthDots)
+        {
+            float size = WATERMARK_TEXT_MAX_SIZE;
+            float targetWidth = maxWidthDots * 0.88f;
+
+            paint.TextSize = size;
+            while (size > WATERMARK_TEXT_MIN_SIZE && paint.MeasureText(text) > targetWidth)
+            {
+                size -= 2f;
+                paint.TextSize = size;
+            }
+            return size;
+        }
+
+        /// <summary>
+        /// Loads and upscales the app logo for use as a large watermark
+        /// element (distinct from the small header logo sizing in
+        /// <see cref="TryBuildLogoCommand"/>).
+        /// </summary>
+        private static Bitmap TryLoadWatermarkLogo(string assetName, int printerWidthDots)
+        {
+            if (string.IsNullOrWhiteSpace(assetName)) return null;
+            try
+            {
+                var context = Android.App.Application.Context;
+                Bitmap src;
+                using (var stream = context.Assets.Open(assetName))
+                    src = BitmapFactory.DecodeStream(stream);
+                if (src == null) return null;
+
+                int targetW = (int)(printerWidthDots * WATERMARK_LOGO_WIDTH_RATIO);
+                targetW = Math.Max(8, (targetW / 8) * 8);
+                targetW = Math.Min(targetW, printerWidthDots);
+
+                float scale = (float)targetW / src.Width;
+                int targetH = Math.Max(1, (int)(src.Height * scale));
+
+                var scaled = Bitmap.CreateScaledBitmap(src, targetW, targetH, true);
+                if (scaled != src) src.Recycle();
+                return scaled;
+            }
+            catch (Exception ex)
+            {
+                Log($"Watermark logo skipped – {ex.Message}");
                 return null;
             }
         }
@@ -703,6 +993,81 @@ namespace YIRSHospital.Services
                 }
             return result;
         }
+
+        private void DrawWatermarkBackground(
+           Canvas canvas,
+           int width,
+           int height,
+           WatermarkMode mode,
+           string text,
+           string logoAssetName)
+        {
+            if (canvas == null || mode == WatermarkMode.None)
+                return;
+
+            bool drawLogo = mode == WatermarkMode.Logo || mode == WatermarkMode.Both;
+            bool drawText = (mode == WatermarkMode.Text || mode == WatermarkMode.Both)
+                            && !string.IsNullOrWhiteSpace(text);
+
+            Bitmap logo = null;
+            Paint textPaint = null;
+            Paint logoPaint = null;
+
+            try
+            {
+                int y = WATERMARK_PADDING;
+
+                if (drawLogo)
+                {
+                    logo = TryLoadWatermarkLogo(logoAssetName, width);
+                    drawLogo = logo != null;
+
+                    if (drawLogo)
+                    {
+                        logoPaint = new Paint
+                        {
+                            AntiAlias = true,
+                            FilterBitmap = true,
+                            Alpha = WATERMARK_LOGO_ALPHA
+                        };
+
+                        float x = (width - logo.Width) / 2f;
+                        canvas.DrawBitmap(logo, x, y, logoPaint);
+                        y += logo.Height + WATERMARK_PADDING;
+                    }
+                }
+
+                if (drawText)
+                {
+                    textPaint = new Paint { AntiAlias = true };
+
+                    float textSize = FitWatermarkTextSize(textPaint, text, width);
+                    textPaint.TextSize = textSize;
+                    textPaint.SetARGB(
+                        255,
+                        WATERMARK_GRAY,
+                        WATERMARK_GRAY,
+                        WATERMARK_GRAY);
+
+                    float textWidth = textPaint.MeasureText(text);
+                    float x = (width - textWidth) / 2f;
+                    float baseline = y + textSize * 0.85f;
+
+                    canvas.DrawText(text, x, baseline, textPaint);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log($"Watermark background skipped – {ex.Message}");
+            }
+            finally
+            {
+                logoPaint?.Dispose();
+                textPaint?.Dispose();
+                logo?.Recycle();
+            }
+        }
+
 
         /// <summary>
         /// Floyd-Steinberg dithering – produces halftone-like output.
@@ -879,9 +1244,20 @@ namespace YIRSHospital.Services
         }
     }
 
+
+
     // ══════════════════════════════════════════════════════════════
     //  DATA MODELS
     // ══════════════════════════════════════════════════════════════
+
+    /// <summary>What the once-only watermark block at the bottom of the receipt shows.</summary>
+    public enum WatermarkMode
+    {
+        None,
+        Text,
+        Logo,
+        Both
+    }
 
     public sealed class ReceiptData
     {
