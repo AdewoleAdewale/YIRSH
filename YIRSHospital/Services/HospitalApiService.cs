@@ -1150,7 +1150,9 @@ namespace YIRSHospital.Services
         }
 
         // Add this method to HospitalApiService.cs
-        public static async Task<ApiResult<StaffBillHistoryResponse>> GetStaffBillHistoryAsync(string email, string hospitalCode, CancellationToken ct = default)
+        // ── Staff Bill History (SSL Bypassed) ─────────────────────────────────
+        public static async Task<ApiResult<StaffBillHistoryResponse>> GetStaffBillHistoryAsync(
+            string email, string hospitalCode, CancellationToken ct = default)
         {
             try
             {
@@ -1158,13 +1160,17 @@ namespace YIRSHospital.Services
                 string safeCode = Uri.EscapeDataString(hospitalCode ?? "DEFAULT");
                 string url = $"{ROOT}/Api/Agents/GetStaffBillHistory?email={safeEmail}&hospitalCode={safeCode}";
 
-                // Utilizing the secure ApiClient.Shared established for SSL bypass[cite: 4, 7]
-                using (var response = await ApiClient.Shared.GetAsync(url, ct))
+                Debug.WriteLine($"[HospitalApi] GET {url}");
+
+                // Use _client (the _insecureClient instance) instead of ApiClient.Shared
+                using (var response = await _client.GetAsync(url, ct))
                 {
                     var json = await response.Content.ReadAsStringAsync();
+                    Debug.WriteLine($"[HospitalApi] StaffBillHistory -> {response.StatusCode}");
 
                     if (!response.IsSuccessStatusCode)
-                        return ApiResult<StaffBillHistoryResponse>.Fail($"Server error ({response.StatusCode}).");
+                        return ApiResult<StaffBillHistoryResponse>.Fail(
+                            ExtractApiError(json) ?? DescribeStatus(response.StatusCode, json));
 
                     if (string.IsNullOrWhiteSpace(json))
                         return ApiResult<StaffBillHistoryResponse>.Fail("Empty response from server.");
@@ -1175,8 +1181,8 @@ namespace YIRSHospital.Services
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[StaffBillHistory] Fetch failed: {ex.Message}");
-                return ApiResult<StaffBillHistoryResponse>.Fail(ex.Message);
+                Debug.WriteLine($"[StaffBillHistory] Fetch failed: {ex.Message}");
+                return ApiResult<StaffBillHistoryResponse>.Fail(Describe(ex));
             }
         }
     }

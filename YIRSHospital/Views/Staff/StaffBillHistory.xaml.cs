@@ -43,11 +43,16 @@ namespace YIRSHospital.Views.Staff
         {
             try
             {
+                var email = LoginPage.ValidUserMail;
+                if (string.IsNullOrWhiteSpace(email))
+                {
+                    await DisplayAlert("Session Notice", "Agent email not found. Please log in again.", "OK");
+                    return;
+                }
+
                 UserDialogs.Instance.ShowLoading("Loading history...");
 
-                var email = LoginPage.ValidUserMail;
                 var code = HospitalContext.Code ?? "DEFAULT";
-
                 var result = await HospitalApiService.GetStaffBillHistoryAsync(email, code);
 
                 UserDialogs.Instance.HideLoading();
