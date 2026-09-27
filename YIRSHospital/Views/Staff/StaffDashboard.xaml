@@ -52,7 +52,7 @@
                  response so nothing here is guessed. ═══════════ -->
             <yummy:PancakeView BackgroundColor="{StaticResource Brand}"
                                CornerRadius="0,0,14,14"
-                               Padding="20,50,20,22"
+                               Padding="20,5,20,22"
                                Margin="-18,0,-18,0">
                 <StackLayout Spacing="16">
                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
@@ -138,6 +138,31 @@
                 </StackLayout>
             </yummy:PancakeView>
 
+            <yummy:PancakeView Margin="1,0,1,0"
+BackgroundColor="{StaticResource Brand}"
+CornerRadius="10"
+Padding="15,10"
+HasShadow="True"
+Elevation="6">
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackLayout Grid.Column="0" Spacing="2" VerticalOptions="Center">
+                        <Label Text="Confirm Payment" TextColor="{StaticResource OnBrand}" FontSize="16" FontAttributes="Bold"/>
+                        <Label Text="Confirm Payment Raised by Staffs" TextColor="{StaticResource OnBrand}" FontSize="10" />
+                    </StackLayout>
+
+                    <Label Grid.Column="1" Text="→" TextColor="{StaticResource OnBrand}" FontSize="22" VerticalOptions="Center"/>
+                </Grid>
+                <yummy:PancakeView.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="TapGestureRecognizer_Tapped"/>
+                </yummy:PancakeView.GestureRecognizers>
+            </yummy:PancakeView>
+
+
             <!-- ── Staff Services ───────────────────────────────────── -->
             <StackLayout Spacing="12" Margin="0,4,0,0">
                 <Label Text="Staff Biller Services"
@@ -179,6 +204,9 @@
                             <TapGestureRecognizer Tapped="OnNavigatePatientHistory"/>
                         </yummy:PancakeView.GestureRecognizers>
                     </yummy:PancakeView>
+
+                    <!-- Verify Transaction -->
+                
                 </Grid>
             </StackLayout>
 

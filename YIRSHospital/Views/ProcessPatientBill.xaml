@@ -24,9 +24,9 @@
         </ResourceDictionary>
     </ContentPage.Resources>
 
-    <RefreshView x:Name="PageRefreshView" Refreshing="OnRefreshRequested">
+    <RefreshView x:Name="PageRefreshView" Refreshing="OnRefreshRequested" BackgroundColor="Transparent">
         <ScrollView>
-            <StackLayout Spacing="16" Padding="16">
+            <StackLayout Spacing="16" Padding="16" BackgroundColor="Transparent">
 
                 <!-- ── Search & Fetch Card ── -->
                 <yummy:PancakeView BackgroundColor="White" CornerRadius="14" Padding="16" HasShadow="True">
@@ -215,9 +215,10 @@
                         <Label Text="Amount Paid" FontSize="11" TextColor="{StaticResource TextSecondary}"/>
                         <Label x:Name="ResultTotalAmountLabel" FontSize="20" FontAttributes="Bold" TextColor="#10B981"/>
 
-                        <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
-                            <Button Grid.Column="0" Text="📤 Share" FontSize="13" BackgroundColor="#EEF2FF" TextColor="{StaticResource Primary}" CornerRadius="10" Clicked="OnShareResultClicked"/>
-                            <Button Grid.Column="1" Text="Done" FontSize="13" BackgroundColor="{StaticResource Primary}" TextColor="White" CornerRadius="10" Clicked="OnDoneClicked"/>
+                        <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10">
+                            <Button Grid.Column="0" Text="📤" FontSize="13" BackgroundColor="#EEF2FF" TextColor="{StaticResource Primary}" CornerRadius="10" Clicked="OnShareResultClicked"/>
+                            <Button Grid.Column="1" Text="🖨" FontSize="13" BackgroundColor="#EEF2FF" TextColor="{StaticResource Primary}" CornerRadius="10" Clicked="OnPrintReceiptClicked"/>
+                            <Button Grid.Column="2" Text="Done" FontSize="13" BackgroundColor="{StaticResource Primary}" TextColor="White" CornerRadius="10" Clicked="OnDoneClicked"/>
                         </Grid>
                     </StackLayout>
                 </yummy:PancakeView>

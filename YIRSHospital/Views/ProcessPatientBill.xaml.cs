@@ -282,12 +282,6 @@ namespace YIRSHospital.Views
                 return;
             }
 
-            if (string.IsNullOrWhiteSpace(SessionService.MerchantNo))
-            {
-                await DisplayAlert("Account Setup",
-                    "Your merchant number is missing from this session. Please log out and log in again.", "OK");
-                return;
-            }
 
             string refCode = ReferenceEntry.Text?.Trim();
             if (_selectedPaymentMethod != "Cash" && string.IsNullOrWhiteSpace(refCode))
@@ -315,8 +309,7 @@ namespace YIRSHospital.Views
                 Department = _currentBill.Department,
                 Email = LoginPage.ValidUserMail,
                 Pin = pin,
-                // Remove MerchantNo for Staff; retain it for Agents if needed in the future
-                MerchantNo = SessionService.Role == "Staff" ? null : SessionService.MerchantNo,
+             
                 PaymentMethod = _selectedPaymentMethod,
                 Services = _currentBill.Services.Select(s => new ProcessBillServiceItem
                 {
@@ -421,6 +414,61 @@ namespace YIRSHospital.Views
                 Text = sb.ToString(),
                 Title = "Payment Receipt"
             });
+        }
+
+        private async void OnPrintReceiptClicked(object sender, EventArgs e)
+        {
+            if (_lastResult == null) return;
+
+            try
+            {
+                UserDialogs.Instance.ShowLoading("Printing receipt...");
+
+                // Map the bill breakdown to the printer's expected item format
+                var receiptItems = _lastResult.Breakdowns?.Select(b => new ReceiptItem
+                {
+                    Description = b.ServiceName,
+                    Amount = b.Amount,
+                }).ToList() ?? new List<ReceiptItem>();
+
+                // Build the receipt payload
+                var receiptData = new ReceiptData
+                {
+                    StoreName = HospitalContext.Label ?? "YOBE STATE SPECIALIST HOSPITAL",
+                    ReceiptBannerText = "OFFICIAL RECEIPT",
+                    ReceiptNumber = _lastResult.TransactionNo, // Triggers barcode generation
+                    AgentName = LoginPage.Name,
+                    CollectionPoint = LoginPage.CollectionPoint ?? _lastResult.Department,
+                    PrintDate = DateTime.Now,
+                    Items = receiptItems,
+                    TotalAmount = _lastResult.TotalAmount,
+                    FooterLine2 = "POWERED BY OSOFTPAY"
+                };
+
+                using (var printerService = new BluetoothPrinterService(use80mm: false))
+                {
+                    using (var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(30)))
+                    {
+                        // Print with Vertical Logo and Watermark
+                        await printerService.PrintReceiptAsync(
+                            receiptData,
+                            logoAssetName: "Logo.png",
+                            watermarkMode: WatermarkMode.Both,
+                            watermarkText: "PAID",
+                            watermarkLogoAssetName: "Logo.png",
+                            cancellationToken: cts.Token
+                        );
+                    }
+                }
+
+                UserDialogs.Instance.HideLoading();
+                UserDialogs.Instance.Toast("Receipt printed successfully.");
+            }
+            catch (Exception ex)
+            {
+                UserDialogs.Instance.HideLoading();
+                await DisplayAlert("Printer Error", $"Could not print receipt: {ex.Message}", "OK");
+            }
         }
 
         private async void OnDoneClicked(object sender, EventArgs e)

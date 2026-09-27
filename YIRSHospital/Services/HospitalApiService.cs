@@ -973,9 +973,7 @@ namespace YIRSHospital.Services
                 return ApiResult<ProcessBillResponse>.Fail("Your session has expired. Please log in again.");
             if (string.IsNullOrWhiteSpace(payload.Pin))
                 return ApiResult<ProcessBillResponse>.Fail("Wallet PIN is required.");
-            if (string.IsNullOrWhiteSpace(payload.MerchantNo))
-                return ApiResult<ProcessBillResponse>.Fail(
-                    "Your merchant number is missing. Please log out and log in again.");
+          
             if (payload.Services == null || payload.Services.Count == 0)
                 return ApiResult<ProcessBillResponse>.Fail("No services to process.");
 

@@ -178,6 +178,8 @@ namespace YIRSHospital.Views.Staff
             {
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
             }
+
+         
         }
 
         public class RecentStaffBillModel
@@ -188,6 +190,11 @@ namespace YIRSHospital.Views.Staff
             public string Status { get; set; }
             public Color StatusColor { get; set; }
             public Color StatusBgColor { get; set; }
+        }
+
+        private async void TapGestureRecognizer_Tapped(object sender, EventArgs e)
+        {
+            await Navigation.PushAsync(new ConfirmPatientPayment());
         }
     }
 }

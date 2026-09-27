@@ -10,12 +10,13 @@ using System.Threading.Tasks;
 using Xamarin.Forms;
 using YIRSHospital.Models;
 using YIRSHospital.Services;
+using static YIRSHospital.Views.HospitalServicesList;
 
 namespace YIRSHospital.Views
 {
     public partial class RaisePatientBill : ContentPage
     {
-
+        private readonly HospitalViewModel _viewModel; 
         private bool _popOnSheetClose = false;
         private TaskCompletionSource<bool> _sheetResult;
 
@@ -251,6 +252,52 @@ namespace YIRSHospital.Views
         private async void OnSheetPrimaryClicked(object sender, EventArgs e) => await HideSheetAsync(true);
 
         private async void OnSheetDismissTapped(object sender, EventArgs e) => await HideSheetAsync(true);
+
+        private async void PatientNoEntry_Completed(object sender, EventArgs e)
+        {
+            string patientNo = PatientNoEntry.Text?.Trim();
+            if (string.IsNullOrWhiteSpace(patientNo))
+            {
+                await DisplayAlert("Validation", "Please enter a valid patient number.", "OK");
+                return;
+            }
+
+            try
+            {
+                // Replaced the null _viewModel with UserDialogs
+                UserDialogs.Instance.ShowLoading("Verifying patient records…");
+
+                var result = await HospitalApiService.GetPatientTransactionsAsync(
+                    patientNo,
+                    HospitalContext.Code
+                );
+
+                UserDialogs.Instance.HideLoading();
+
+                if (result.Success && result.Data != null && result.Data.Code == "00")
+                {
+                    var data = result.Data;
+
+                    // Display patient summary card
+                    ExistingPatientName.Text = !string.IsNullOrWhiteSpace(data.PatientName) ? data.PatientName : "N/A";
+                    ExistingPatientIdDisplay.Text = patientNo;
+                    ExistingPatientTotalPaid.Text = $"₦{data.TotalAmount:N2}";
+                    ExistingPatientInfoCard.IsVisible = true;
+
+                    UserDialogs.Instance.Toast("Patient verified successfully", TimeSpan.FromSeconds(2));
+                }
+                else
+                {
+                    ExistingPatientInfoCard.IsVisible = false;
+                    await DisplayAlert("Verification Failed", result.ErrorMessage ?? "Patient record not found.", "OK");
+                }
+            }
+            catch (Exception ex)
+            {
+                UserDialogs.Instance.HideLoading();
+                await DisplayAlert("Error", $"Verification failed: {ex.Message}", "OK");
+            }
+        }
     }
 
     /// <summary>
