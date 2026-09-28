@@ -13,7 +13,7 @@ namespace YIRSH.Helpers
     public static class ReceiptFooter
     {
         // ADAPT: change wording to whatever the watermark should say.
-        public const string WatermarkLine1 = "Powered by YIRSH";
+        public const string WatermarkLine1 = "Powered by OSOFTPAY";
         public const string WatermarkLine2 = "Scan barcode to verify this receipt";
 
         private const int QuietModules = 10;

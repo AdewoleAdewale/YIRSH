@@ -138,16 +138,7 @@ namespace YIRSHospital.Views
             BillGroupIdLabel.Text = string.IsNullOrWhiteSpace(bill.BillGroupId) ? "—" : bill.BillGroupId;
             GrandTotalLabel.Text = $"₦{bill.GrandTotal:N2}";
 
-            if (!string.IsNullOrWhiteSpace(bill.PhoneNumber))
-            {
-                PhoneRow.IsVisible = true;
-                PhoneNumberLabel.Text = bill.PhoneNumber;
-            }
-            else
-            {
-                PhoneRow.IsVisible = false;
-            }
-
+          
             var services = bill.Services ?? new List<PendingBillServiceItem>();
             ServiceCountLabel.Text = services.Count == 1 ? "1 item" : $"{services.Count} items";
 
@@ -428,15 +419,16 @@ namespace YIRSHospital.Views
                 var receiptItems = _lastResult.Breakdowns?.Select(b => new ReceiptItem
                 {
                     Description = b.ServiceName,
-                    Amount = b.Amount,
+                    Amount = b.Amount, // Maps the individual service amount
                 }).ToList() ?? new List<ReceiptItem>();
 
-                // Build the receipt payload
+                // Build the receipt payload with Barcode and QR Code triggers
                 var receiptData = new ReceiptData
                 {
                     StoreName = HospitalContext.Label ?? "YOBE STATE SPECIALIST HOSPITAL",
-                    ReceiptBannerText = "OFFICIAL RECEIPT",
-                    ReceiptNumber = _lastResult.TransactionNo, // Triggers barcode generation
+                    ReceiptBannerText = "OFFICIAL  RECEIPT",
+                    ReceiptNumber = _lastResult.TransactionNo, // Triggers the global native 1D Barcode at the bottom
+                    BarcodeLabel = $"https://yobe.osoftpay.net/Singlecollections/Verify?TransactId={_lastResult.TransactionNo}", // Triggers the native QR Code verification link
                     AgentName = LoginPage.Name,
                     CollectionPoint = LoginPage.CollectionPoint ?? _lastResult.Department,
                     PrintDate = DateTime.Now,
@@ -449,7 +441,7 @@ namespace YIRSHospital.Views
                 {
                     using (var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(30)))
                     {
-                        // Print with Vertical Logo and Watermark
+                        // Print with Logo, Watermark Text, and Watermark Logo configured underneath the receipt
                         await printerService.PrintReceiptAsync(
                             receiptData,
                             logoAssetName: "Logo.png",
@@ -470,7 +462,6 @@ namespace YIRSHospital.Views
                 await DisplayAlert("Printer Error", $"Could not print receipt: {ex.Message}", "OK");
             }
         }
-
         private async void OnDoneClicked(object sender, EventArgs e)
         {
             await Navigation.PopAsync();

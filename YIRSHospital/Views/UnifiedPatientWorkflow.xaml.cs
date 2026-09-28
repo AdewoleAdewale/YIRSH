@@ -1521,7 +1521,7 @@ namespace YIRSHospital.Views
                 TotalAmount = grandTotal,
                 FooterLine2 = App.PrinterFooter ?? "POWERED BY OSOFTPAY",
                 BarcodeLabel = (responses.Count == 1 && !string.IsNullOrWhiteSpace(responses[0].transactionNo))
-                    ? $"https://yobe.osoftpay.net/Api/Singlecollections/VerifyTransaction?TransactId={Uri.EscapeDataString(responses[0].transactionNo)}"
+                    ? $"https://yobe.osoftpay.net/Singlecollections/Verify?TransactId={Uri.EscapeDataString(responses[0].transactionNo)}"
                     : null
             };
         }

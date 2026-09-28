@@ -37,6 +37,8 @@ namespace YIRSHospital.Services
 
         private const int RASTER_BAND_HEIGHT = 256; // Add this constant to the Constants region near the other printer-related constants
         private const int BODY_PADDING = 24;
+        // Banner font size relative to body text (was 1.9). Lower = smaller.
+        private const float BANNER_SIZE_RATIO = 1.4f;
 
         private const int WATERMARK_GRAY = 185;
         private const float WATERMARK_TEXT_MAX_SIZE = 72f;
@@ -89,7 +91,8 @@ namespace YIRSHospital.Services
                 "MP300", "IposPrinter", "FP8800",
                 "Internal Bluetooth Printer",
                 "printer001", "b906", "ANDROID BT", "CS10",
-                "Q2i",
+                  "Q2i",
+                "MP-58T",
             };
 
         #endregion
@@ -486,35 +489,32 @@ namespace YIRSHospital.Services
                     ms.Write(body);
                 }
 
-                // ── NEW: 1D Barcode (Uses ReceiptNumber) ──
-                if (!string.IsNullOrWhiteSpace(receipt.ReceiptNumber) && receipt.ReceiptNumber != "N/A")
-                {
-                    ms.Write(CMD_ALIGN_CENTER);
-                    ms.Write(CMD_LF);
-                    ms.Write(BuildBarcodeCommand(receipt.ReceiptNumber));
-                    ms.Write(CMD_LF);
-                }
+                // ── Footer + QR code (matches the ZIRS receipt): POWERED BY line, then QR ──
+                ms.Write(CMD_ALIGN_CENTER);
+                ms.Write(CMD_BOLD_ON);
+                ms.WriteText((receipt.FooterLine2 ?? "POWERED BY OSOFTPAY") + "\n");
+                ms.Write(CMD_BOLD_OFF);
+                ms.Write(CMD_LF);
 
-                // ── QR Code (native ESC/POS, kept crisp for reliable scans) ───
-                if (!string.IsNullOrWhiteSpace(receipt.BarcodeLabel))
-                {
-                    ms.Write(CMD_ALIGN_CENTER);
-                    ms.Write(CMD_FONT_SMALL);
-                    ms.WriteText("SCAN TO VERIFY\n");
-                    ms.Write(CMD_FONT_NORMAL);
+                // QR payload: the verification URL if set, otherwise the receipt number,
+                // so a scannable code is always printed.
+                string qrData = !string.IsNullOrWhiteSpace(receipt.BarcodeLabel)
+                    ? receipt.BarcodeLabel
+                    : (!string.IsNullOrWhiteSpace(receipt.ReceiptNumber) && receipt.ReceiptNumber != "N/A"
+                        ? receipt.ReceiptNumber
+                        : null);
 
+                if (qrData != null)
+                {
                     const byte qrCellSize = 3;
-                    int estimatedQrDots = EstimateQrDots(receipt.BarcodeLabel, qrCellSize);
+                    int estimatedQrDots = EstimateQrDots(qrData, qrCellSize);
                     int qrLeftMargin = Math.Max(0, (_printerDots - estimatedQrDots) / 2);
 
-                    // Set left margin: GS L nL nH
-                    ms.Write(SetLeftMargin(qrLeftMargin));
-                    ms.Write(BuildQRCodeCommand(receipt.BarcodeLabel, qrCellSize));
-                    // Reset left margin to zero so the rest of the receipt is unaffected
-                    ms.Write(CMD_MARGIN_RESET);
-
+                    // Left-align + explicit left margin = deterministic centring.
                     ms.Write(CMD_ALIGN_LEFT);
-                    ms.WriteText(Divider('-', _charsPerLine) + "\n");
+                    ms.Write(SetLeftMargin(qrLeftMargin));
+                    ms.Write(BuildQRCodeCommand(qrData, qrCellSize));
+                    ms.Write(CMD_MARGIN_RESET);
                 }
 
                 ms.Write(CMD_ALIGN_LEFT);
@@ -552,8 +552,14 @@ namespace YIRSHospital.Services
 
             float lineHeight = MonoLineHeight(normalPaint);
 
-            // Scale banner relative to the fixed normal size
-            bannerPaint.TextSize = normalPaint.TextSize * 1.9f;
+            // Banner is slightly larger than body text, then shrunk if needed so the
+            // whole banner text fits on one line (no clipping on either side).
+            bannerPaint.TextSize = normalPaint.TextSize * BANNER_SIZE_RATIO;
+            string bannerText = receipt.ReceiptBannerText ?? "OFFICIAL RECEIPT";
+            float bannerMaxWidth = width - 8f;
+            while (bannerPaint.TextSize > normalPaint.TextSize &&
+                   bannerPaint.MeasureText(bannerText) > bannerMaxWidth)
+                bannerPaint.TextSize -= 1f;
             float bannerLineHeight = MonoLineHeight(bannerPaint);
 
             Bitmap headerLogo = string.IsNullOrWhiteSpace(logoAssetName)
@@ -682,24 +688,19 @@ namespace YIRSHospital.Services
 
             if (headerLogo != null)
             {
+                // Normal orientation: centred, no rotation.
                 if (canvas != null)
-                {
-                    canvas.Save();
-                    float cx = width / 2f;
-                    // The height of the rotated image is now its original Width
-                    float cy = y + (headerLogo.Width / 2f);
-
-                    canvas.Translate(cx, cy);
-                    canvas.Rotate(-90); // ── FIX 2: Rotates header logo vertically ──
-                    canvas.DrawBitmap(headerLogo, -headerLogo.Width / 2f, -headerLogo.Height / 2f, null);
-                    canvas.Restore();
-                }
-                y += headerLogo.Width + BODY_PADDING / 2;
+                    canvas.DrawBitmap(headerLogo, (width - headerLogo.Width) / 2f, y, null);
+                y += headerLogo.Height + BODY_PADDING / 2;
             }
 
+            // Hospital name + contact line: extra-heavy bold (FakeBoldText thickens the strokes
+            // so it survives the 1-bit dithering). Switched off again for the rest of the body.
+            boldPaint.FakeBoldText = true;
             y = DrawCentered(canvas, receipt.StoreName, boldPaint, width, y, lineHeight);
             if (!string.IsNullOrWhiteSpace(receipt.StorePhone))
-                y = DrawCentered(canvas, receipt.StorePhone, normalPaint, width, y, lineHeight);
+                y = DrawCentered(canvas, receipt.StorePhone, boldPaint, width, y, lineHeight);
+            boldPaint.FakeBoldText = false;
             y = DrawCentered(canvas, Divider('=', _charsPerLine), normalPaint, width, y, lineHeight);
 
             // ── Receipt banner ───────────────────────────────────────────
@@ -753,12 +754,9 @@ namespace YIRSHospital.Services
                 y = DrawLeft(canvas, ColTwoRight("BALANCE DUE",
                     "N" + receipt.AmountLeft.ToString("###,###.00"), _charsPerLine), boldPaint, y, lineHeight);
 
-            y = DrawCentered(canvas, Divider('=', _charsPerLine), normalPaint, width, y, lineHeight);
-
-            y = DrawCentered(canvas, receipt.FooterLine2 ?? "POWERED BY OSOFTPAY", boldPaint, width, y, lineHeight);
-            y = DrawCentered(canvas, Divider('=', _charsPerLine), normalPaint, width, y, lineHeight);
-
-            y += BODY_PADDING;
+            // Body ends at the totals. Barcode / QR follow directly, and the
+            // "Thank You / POWERED BY" footer is printed after them (see BuildPrintBuffer).
+            y += BODY_PADDING / 2;
             return y;
         }
         //private int LayoutBody(
@@ -1228,9 +1226,9 @@ namespace YIRSHospital.Services
             if (canvas == null || mode == WatermarkMode.None)
                 return;
 
-            bool drawLogo = mode == WatermarkMode.Logo || mode == WatermarkMode.Both;
-            bool drawText = (mode == WatermarkMode.Text || mode == WatermarkMode.Both)
-                            && !string.IsNullOrWhiteSpace(text);
+            // Watermark is TEXT ONLY: the logo is never drawn here, regardless of mode.
+            bool drawLogo = false;
+            bool drawText = !string.IsNullOrWhiteSpace(text);
 
             Bitmap logo = null;
             Paint textPaint = null;
@@ -1300,100 +1298,59 @@ namespace YIRSHospital.Services
         }
 
 
-        private static byte[] BuildBarcodeCommand(string data)
+        /// <summary>
+        /// Native Code 128 barcode. Purely numeric, even-length data (e.g. the 18-digit
+        /// receipt number) uses Code Set C, which packs 2 digits per symbol – about half
+        /// the width of Set B. Set B for an 18-digit ref is ~466 dots wide at module width 2,
+        /// which is WIDER than the 384-dot paper, so the printer clipped/squeezed it and phone
+        /// cameras could not read it. Set C is ~268 dots and fits with proper quiet zones.
+        /// The module width is chosen automatically as the widest that still fits the paper.
+        /// </summary>
+        private byte[] BuildBarcodeCommand(string data)
         {
+            if (string.IsNullOrWhiteSpace(data) || data == "N/A") return new byte[0];
+            data = data.Trim();
+
+            bool useSetC = data.Length % 2 == 0 && data.All(c => c >= '0' && c <= '9');
+
+            byte[] payload;
+            int symbols;
+            if (useSetC)
+            {
+                symbols = data.Length / 2;
+                payload = new byte[2 + symbols];
+                payload[0] = 0x7B; payload[1] = 0x43;            // {C
+                for (int i = 0; i < symbols; i++)
+                    payload[2 + i] = (byte)((data[2 * i] - '0') * 10 + (data[2 * i + 1] - '0'));
+            }
+            else
+            {
+                byte[] raw = Encoding.ASCII.GetBytes(data);
+                symbols = raw.Length;
+                payload = new byte[2 + raw.Length];
+                payload[0] = 0x7B; payload[1] = 0x42;            // {B
+                Array.Copy(raw, 0, payload, 2, raw.Length);
+            }
+
+            // modules = start + data symbols + check (11 each) + stop (13)
+            int modules = 11 * (symbols + 2) + 13;
+            const int quietDots = 24;
+            int moduleWidth = Math.Max(2, Math.Min(4, (_printerDots - quietDots * 2) / modules));
+
             var ms = new MemoryStream();
             try
             {
-                ms.Write(new byte[] { 0x1D, 0x68, 80 }); // Set barcode height to 80 dots
-                ms.Write(new byte[] { 0x1D, 0x77, 2 });  // Set barcode width (2 = narrow)
-                ms.Write(new byte[] { 0x1D, 0x48, 2 });  // Print human-readable characters BELOW the barcode
-
-                // Code 128 (Type 73) requires a subset selector prefix. We use Subset B ("{B" = 0x7B, 0x42)
-                byte[] rawData = Encoding.UTF8.GetBytes(data);
-                int totalLen = rawData.Length + 2;
-
-                ms.Write(new byte[] { 0x1D, 0x6B, 73, (byte)totalLen, 0x7B, 0x42 });
-                ms.Write(rawData, 0, rawData.Length);
-
+                ms.Write(new byte[] { 0x1D, 0x68, 100 });                    // height 100 dots
+                ms.Write(new byte[] { 0x1D, 0x77, (byte)moduleWidth });      // module width
+                ms.Write(new byte[] { 0x1D, 0x48, 2 });                      // readable text BELOW
+                ms.Write(new byte[] { 0x1D, 0x66, 0 });                      // readable text font A
+                ms.Write(new byte[] { 0x1D, 0x6B, 73, (byte)payload.Length });
+                ms.Write(payload, 0, payload.Length);
                 return ms.ToArray();
             }
             finally { ms.Dispose(); }
         }
 
-        //private void DrawWatermarkBackground(
-        //   Canvas canvas,
-        //   int width,
-        //   int height,
-        //   WatermarkMode mode,
-        //   string text,
-        //   string logoAssetName)
-        //{
-        //    if (canvas == null || mode == WatermarkMode.None)
-        //        return;
-
-        //    bool drawLogo = mode == WatermarkMode.Logo || mode == WatermarkMode.Both;
-        //    bool drawText = (mode == WatermarkMode.Text || mode == WatermarkMode.Both)
-        //                    && !string.IsNullOrWhiteSpace(text);
-
-        //    Bitmap logo = null;
-        //    Paint textPaint = null;
-        //    Paint logoPaint = null;
-
-        //    try
-        //    {
-        //        int y = WATERMARK_PADDING;
-
-        //        if (drawLogo)
-        //        {
-        //            logo = TryLoadWatermarkLogo(logoAssetName, width);
-        //            drawLogo = logo != null;
-
-        //            if (drawLogo)
-        //            {
-        //                logoPaint = new Paint
-        //                {
-        //                    AntiAlias = true,
-        //                    FilterBitmap = true,
-        //                    Alpha = WATERMARK_LOGO_ALPHA
-        //                };
-
-        //                float x = (width - logo.Width) / 2f;
-        //                canvas.DrawBitmap(logo, x, y, logoPaint);
-        //                y += logo.Height + WATERMARK_PADDING;
-        //            }
-        //        }
-
-        //        if (drawText)
-        //        {
-        //            textPaint = new Paint { AntiAlias = true };
-
-        //            float textSize = FitWatermarkTextSize(textPaint, text, width);
-        //            textPaint.TextSize = textSize;
-        //            textPaint.SetARGB(
-        //                255,
-        //                WATERMARK_GRAY,
-        //                WATERMARK_GRAY,
-        //                WATERMARK_GRAY);
-
-        //            float textWidth = textPaint.MeasureText(text);
-        //            float x = (width - textWidth) / 2f;
-        //            float baseline = y + textSize * 0.85f;
-
-        //            canvas.DrawText(text, x, baseline, textPaint);
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        Log($"Watermark background skipped – {ex.Message}");
-        //    }
-        //    finally
-        //    {
-        //        logoPaint?.Dispose();
-        //        textPaint?.Dispose();
-        //        logo?.Recycle();
-        //    }
-        //}
 
 
         /// <summary>
