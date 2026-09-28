@@ -1,12 +1,64 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
-             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             x:Class="YIRSHospital.Views.Staff.VerifyTransaction">
-    <ContentPage.Content>
-        <StackLayout>
-            <Label Text="Welcome to Xamarin.Forms!"
-                VerticalOptions="CenterAndExpand" 
-                HorizontalOptions="CenterAndExpand" />
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml" xmlns:yummy="clr-namespace:Xamarin.Forms.PancakeView;assembly=Xamarin.Forms.PancakeView" xmlns:renderers="clr-namespace:YIRSHospital.Services"
+             x:Class="YIRSHospital.Views.Staff.VerifyTransaction"
+             BackgroundColor="#F4F6F8"
+             Title="Verify Transaction">
+
+    <ScrollView>
+        <StackLayout Spacing="16" Padding="16">
+
+            <!-- Search Card -->
+            <yummy:PancakeView BackgroundColor="White" CornerRadius="16" Padding="16" HasShadow="True">
+                <StackLayout Spacing="12">
+                    <Label Text="Transaction Lookup" FontSize="16" FontAttributes="Bold" TextColor="#1A202C"/>
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                        <yummy:PancakeView Grid.Column="0" BorderColor="#E2E8F0" BorderThickness="1" CornerRadius="10" BackgroundColor="#F9FAFB" HeightRequest="48">
+                            <renderers:BorderlessEntry x:Name="TransactionIdEntry" Placeholder="Enter Transaction ID" Keyboard="Numeric" Margin="12,0" VerticalOptions="Center"/>
+                        </yummy:PancakeView>
+                        <Button Grid.Column="1" Text="VERIFY" BackgroundColor="#004225" TextColor="White" FontAttributes="Bold" CornerRadius="10" WidthRequest="90" Clicked="OnVerifyClicked"/>
+                    </Grid>
+                </StackLayout>
+            </yummy:PancakeView>
+
+            <!-- Results Card (Hidden Initially) -->
+            <yummy:PancakeView x:Name="ResultsCard" BackgroundColor="White" CornerRadius="16" Padding="0" HasShadow="True" IsVisible="False">
+                <StackLayout Spacing="0">
+
+                    <!-- Dynamic Status Header -->
+                    <yummy:PancakeView x:Name="StatusHeader" BackgroundColor="#10B981" Padding="16,20" CornerRadius="16,16,0,0">
+                        <StackLayout HorizontalOptions="Center" Spacing="4">
+                            <Label Text="✓" FontSize="32" TextColor="White" HorizontalOptions="Center" FontAttributes="Bold"/>
+                            <Label x:Name="PaymentStatusLabel" FontSize="18" TextColor="White" FontAttributes="Bold" HorizontalOptions="Center"/>
+                            <Label x:Name="TransactionDateLabel" FontSize="12" TextColor="#ECFDF5" HorizontalOptions="Center"/>
+                        </StackLayout>
+                    </yummy:PancakeView>
+
+                    <!-- Details Grid -->
+                    <StackLayout Padding="20" Spacing="16">
+                        <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="12">
+                            <Label Grid.Row="0" Grid.Column="0" Text="Patient Name" TextColor="#718096" FontSize="13"/>
+                            <Label Grid.Row="0" Grid.Column="1" x:Name="PatientNameLabel" FontAttributes="Bold" TextColor="#1A202C" FontSize="14"/>
+
+                            <Label Grid.Row="1" Grid.Column="0" Text="Patient ID" TextColor="#718096" FontSize="13"/>
+                            <Label Grid.Row="1" Grid.Column="1" x:Name="PatientIdLabel" FontAttributes="Bold" TextColor="#1A202C" FontSize="14"/>
+
+                            <Label Grid.Row="2" Grid.Column="0" Text="Payment Method" TextColor="#718096" FontSize="13"/>
+                            <Label Grid.Row="2" Grid.Column="1" x:Name="PaymentMethodLabel" FontAttributes="Bold" TextColor="#1A202C" FontSize="14"/>
+
+                            <Label Grid.Row="3" Grid.Column="0" Text="Total Amount" TextColor="#718096" FontSize="13"/>
+                            <Label Grid.Row="3" Grid.Column="1" x:Name="TotalAmountLabel" FontAttributes="Bold" TextColor="#004225" FontSize="16"/>
+                        </Grid>
+
+                        <BoxView HeightRequest="1" BackgroundColor="#E2E8F0"/>
+
+                        <!-- Services List -->
+                        <Label Text="Services Rendered" FontAttributes="Bold" TextColor="#1A202C" FontSize="14"/>
+                        <StackLayout x:Name="ServicesListContainer" Spacing="10"/>
+                    </StackLayout>
+                </StackLayout>
+            </yummy:PancakeView>
+
         </StackLayout>
-    </ContentPage.Content>
+    </ScrollView>
 </ContentPage>

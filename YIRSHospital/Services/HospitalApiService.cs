@@ -1149,8 +1149,7 @@ namespace YIRSHospital.Services
 
         // Add this method to HospitalApiService.cs
         // ── Staff Bill History (SSL Bypassed) ─────────────────────────────────
-        public static async Task<ApiResult<StaffBillHistoryResponse>> GetStaffBillHistoryAsync(
-            string email, string hospitalCode, CancellationToken ct = default)
+        public static async Task<ApiResult<StaffBillHistoryResponse>> GetStaffBillHistoryAsync( string email, string hospitalCode, CancellationToken ct = default)
         {
             try
             {
@@ -1181,6 +1180,28 @@ namespace YIRSHospital.Services
             {
                 Debug.WriteLine($"[StaffBillHistory] Fetch failed: {ex.Message}");
                 return ApiResult<StaffBillHistoryResponse>.Fail(Describe(ex));
+            }
+        }
+
+        public static async Task<ApiResult<VerifyTransactionResponse>> VerifyTransactionAsync(string transactionId, CancellationToken ct = default)
+        {
+            string url = $"{ROOT}/Api/Agents/VerifyTransaction?transactionId={Uri.EscapeDataString(transactionId)}";
+
+            try
+            {
+                using (var response = await Client.GetAsync(url, ct))
+                {
+                    var json = await response.Content.ReadAsStringAsync();
+                    if (!response.IsSuccessStatusCode)
+                        return ApiResult<VerifyTransactionResponse>.Fail($"Server error ({response.StatusCode})");
+
+                    var data = JsonConvert.DeserializeObject<VerifyTransactionResponse>(json);
+                    return ApiResult<VerifyTransactionResponse>.Ok(data);
+                }
+            }
+            catch (Exception ex)
+            {
+                return ApiResult<VerifyTransactionResponse>.Fail(ex.Message);
             }
         }
     }
