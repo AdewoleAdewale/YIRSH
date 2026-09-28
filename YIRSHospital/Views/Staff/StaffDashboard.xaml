@@ -162,6 +162,31 @@ Elevation="6">
                 </yummy:PancakeView.GestureRecognizers>
             </yummy:PancakeView>
 
+            <yummy:PancakeView Margin="1,0,1,0"
+BackgroundColor="{StaticResource Brand}"
+CornerRadius="10"
+Padding="15,10"
+HasShadow="True"
+Elevation="6">
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackLayout Grid.Column="0" Spacing="2" VerticalOptions="Center">
+                        <Label Text="Verify Payment" TextColor="{StaticResource OnBrand}" FontSize="16" FontAttributes="Bold"/>
+                        <Label Text="Verify Payment Raised by Staffs" TextColor="{StaticResource OnBrand}" FontSize="10" />
+                    </StackLayout>
+
+                    <Label Grid.Column="1" Text="→" TextColor="{StaticResource OnBrand}" FontSize="22" VerticalOptions="Center"/>
+                </Grid>
+                <yummy:PancakeView.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="TapGestureRecognizer_Tapped_1"/>
+                </yummy:PancakeView.GestureRecognizers>
+            </yummy:PancakeView>
+
+
 
             <!-- ── Staff Services ───────────────────────────────────── -->
             <StackLayout Spacing="12" Margin="0,4,0,0">

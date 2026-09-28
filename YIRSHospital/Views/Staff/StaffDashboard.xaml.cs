@@ -196,5 +196,10 @@ namespace YIRSHospital.Views.Staff
         {
             await Navigation.PushAsync(new ConfirmPatientPayment());
         }
+
+        private async  void TapGestureRecognizer_Tapped_1(object sender, EventArgs e)
+        {
+            await Navigation.PushAsync(new VerifyTransaction());
+        }
     }
 }
