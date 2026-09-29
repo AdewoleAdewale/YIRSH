@@ -505,25 +505,17 @@ namespace YIRSHospital.Services
 
                 if (qrData != null)
                 {
-                    // Print a centered Code128 raster barcode first (keeps it legible).
+                    // QR only (no 1D barcode). Printed as a raster image (GS v 0),
+                    // the same command the logo uses, so it works on printers that
+                    // ignore the native QR command (GS ( k).
                     try
                     {
-                        WriteCenteredCode128(ms, qrData, scale: 2, height: 60);
+                        WriteCenteredQr(ms, qrData);
                     }
                     catch (Exception ex)
                     {
-                        Log($"Centered Code128 skipped – {ex.Message}");
+                        Log($"QR skipped – {ex.Message}");
                     }
-
-                    const byte qrCellSize = 3;
-                    int estimatedQrDots = EstimateQrDots(qrData, qrCellSize);
-                    int qrLeftMargin = Math.Max(0, (_printerDots - estimatedQrDots) / 2);
-
-                    // Left-align + explicit left margin = deterministic centring.
-                    ms.Write(CMD_ALIGN_LEFT);
-                    ms.Write(SetLeftMargin(qrLeftMargin));
-                    ms.Write(BuildQRCodeCommand(qrData, qrCellSize));
-                    ms.Write(CMD_MARGIN_RESET);
                 }
 
                 ms.Write(CMD_ALIGN_LEFT);
@@ -535,56 +527,55 @@ namespace YIRSHospital.Services
             }
             finally { ms.Dispose(); }
         }
-        private void WriteCenteredCode128(MemoryStream ms, string data, int scale = 2, int height = 60)
+        /// <summary>
+        /// Prints <paramref name="data"/> as a QR code raster, centred on the paper.
+        /// Each row is padded to the full printer width so centring never depends on
+        /// GS L / alignment support. Sent in bands so small printer buffers cope.
+        /// </summary>
+        private void WriteCenteredQr(MemoryStream ms, string data)
         {
             if (string.IsNullOrWhiteSpace(data) || ms == null) return;
 
-            const int QUIET_MODULES = 10; // match ReceiptFooter quiet modules
-            var modules = Code128.Encode(data.Trim());
-            if (modules == null || modules.Count == 0) return;
+            bool[,] qr = QrEncoder.Encode(data.Trim());
+            int modules = qr.GetLength(0);
+            const int QUIET = 4;                     // quiet zone, in modules
+            int cell = Math.Max(1, Math.Min(4, _printerDots / (modules + QUIET * 2)));
+            int qrDots = (modules + QUIET * 2) * cell;
 
-            int totalModules = modules.Count;
-            int scaleLocal = Math.Max(1, scale);
-            int rowLength = (totalModules + QUIET_MODULES * 2) * scaleLocal;
+            int widthBytes = (_printerDots + 7) / 8;
+            int rowDots = widthBytes * 8;
+            int leftPad = Math.Max(0, (rowDots - qrDots) / 2);
 
-            // If barcode is wider than paper, reduce scale to fit.
-            if (rowLength > _printerDots)
+            // Build the full raster (rowDots wide, qrDots tall).
+            var raster = new byte[widthBytes * qrDots];
+            for (int y = 0; y < qrDots; y++)
             {
-                scaleLocal = Math.Max(1, _printerDots / (totalModules + QUIET_MODULES * 2));
-                rowLength = (totalModules + QUIET_MODULES * 2) * scaleLocal;
-            }
-
-            int widthBytes = (rowLength + 7) / 8;
-            var line = new byte[widthBytes];
-
-            // Build one horizontal row (replicated for 'height' lines)
-            for (int m = 0; m < totalModules; m++)
-            {
-                if (!modules[m]) continue;
-                int baseIndex = (QUIET_MODULES + m) * scaleLocal;
-                for (int k = 0; k < scaleLocal; k++)
+                int my = y / cell - QUIET;
+                if (my < 0 || my >= modules) continue;
+                int rowBase = y * widthBytes;
+                for (int x = 0; x < qrDots; x++)
                 {
-                    int idx = baseIndex + k;
-                    line[idx / 8] |= (byte)(0x80 >> (idx % 8));
+                    int mx = x / cell - QUIET;
+                    if (mx < 0 || mx >= modules || !qr[mx, my]) continue;
+                    int px = leftPad + x;
+                    raster[rowBase + px / 8] |= (byte)(0x80 >> (px % 8));
                 }
             }
 
-            int leftMarginDots = Math.Max(0, (_printerDots - rowLength) / 2);
-
-            // Emit commands: set left margin, GS v 0 raster, raster lines, reset margin
             ms.Write(CMD_ALIGN_LEFT);
-            ms.Write(SetLeftMargin(leftMarginDots));
-
-            ms.Write(new byte[] {
-                0x1D, 0x76, 0x30, 0x00,
-                (byte)(widthBytes & 0xFF), (byte)(widthBytes >> 8),
-                (byte)(height & 0xFF), (byte)(height >> 8)
-            });
-
-            for (int y = 0; y < height; y++)
-                ms.Write(line, 0, line.Length);
-
             ms.Write(CMD_MARGIN_RESET);
+
+            const int BAND = 64;
+            for (int y0 = 0; y0 < qrDots; y0 += BAND)
+            {
+                int h = Math.Min(BAND, qrDots - y0);
+                ms.Write(new byte[] {
+                    0x1D, 0x76, 0x30, 0x00,
+                    (byte)(widthBytes & 0xFF), (byte)(widthBytes >> 8),
+                    (byte)(h & 0xFF), (byte)(h >> 8)
+                }, 0, 8);
+                ms.Write(raster, y0 * widthBytes, h * widthBytes);
+            }
             ms.Write(CMD_LF);
         }
 
@@ -819,87 +810,7 @@ namespace YIRSHospital.Services
             y += BODY_PADDING / 2;
             return y;
         }
-        //private int LayoutBody(
-        //    Canvas canvas, ReceiptData receipt, Bitmap headerLogo, int width,
-        //    Paint normalPaint, Paint boldPaint, Paint bannerPaint,
-        //    float lineHeight, float bannerLineHeight)
-        //{
-        //    int y = BODY_PADDING;
-
-        //    y = DrawCentered(canvas, Divider('=', _charsPerLine), normalPaint, width, y, lineHeight);
-
-        //    if (headerLogo != null)
-        //    {
-        //        if (canvas != null)
-        //            canvas.DrawBitmap(headerLogo, (width - headerLogo.Width) / 2f, y, null);
-        //        y += headerLogo.Height + BODY_PADDING / 2;
-        //    }
-
-        //    y = DrawCentered(canvas, receipt.StoreName, boldPaint, width, y, lineHeight);
-        //    if (!string.IsNullOrWhiteSpace(receipt.StorePhone))
-        //        y = DrawCentered(canvas, receipt.StorePhone, normalPaint, width, y, lineHeight);
-        //    y = DrawCentered(canvas, Divider('=', _charsPerLine), normalPaint, width, y, lineHeight);
-
-        //    // ── Receipt banner ───────────────────────────────────────────
-        //    y = DrawCentered(canvas, receipt.ReceiptBannerText ?? "OFFICIAL RECEIPT", bannerPaint, width, y, bannerLineHeight);
-        //    y = DrawCentered(canvas, Divider('=', _charsPerLine), normalPaint, width, y, lineHeight);
-
-        //    // ── Metadata ─────────────────────────────────────────────────
-        //    y = DrawLeft(canvas, Col("Date", receipt.PrintDate.ToString("dd/MM/yyyy HH:mm:ss"), _charsPerLine), normalPaint, y, lineHeight);
-        //    y = DrawLeft(canvas, Col("Ref", receipt.ReceiptNumber, _charsPerLine), normalPaint, y, lineHeight);
-        //    y = DrawLeft(canvas, Col("Agent", receipt.AgentName, _charsPerLine), normalPaint, y, lineHeight);
-        //    y = DrawLeft(canvas, Col("Point", receipt.CollectionPoint, _charsPerLine), normalPaint, y, lineHeight);
-
-        //    if (!string.IsNullOrWhiteSpace(receipt.Consultant))
-        //        y = DrawLeft(canvas, Col("Consult", receipt.Consultant, _charsPerLine), normalPaint, y, lineHeight);
-        //    if (!string.IsNullOrWhiteSpace(receipt.SuperAgent))
-        //        y = DrawLeft(canvas, Col("S.Agent", receipt.SuperAgent, _charsPerLine), normalPaint, y, lineHeight);
-
-        //    y = DrawCentered(canvas, Divider('-', _charsPerLine), normalPaint, width, y, lineHeight);
-
-        //    // ── Items ────────────────────────────────────────────────────
-        //    foreach (var item in receipt.Items)
-        //    {
-        //        if (item.Amount == 0m && !string.IsNullOrWhiteSpace(item.SubText))
-        //        {
-        //            y = DrawLeft(canvas, Col(item.Description, item.SubText, _charsPerLine), normalPaint, y, lineHeight);
-        //        }
-        //        else
-        //        {
-        //            y = DrawLeft(canvas, ColTwoRight(
-        //                item.Description,
-        //                "N" + item.Amount.ToString("###,###.00"),
-        //                _charsPerLine), normalPaint, y, lineHeight);
-
-        //            if (!string.IsNullOrWhiteSpace(item.SubText))
-        //                y = DrawLeft(canvas, "  " + item.SubText, normalPaint, y, lineHeight);
-        //        }
-        //    }
-
-        //    y = DrawCentered(canvas, Divider('-', _charsPerLine), normalPaint, width, y, lineHeight);
-
-        //    // ── Totals ───────────────────────────────────────────────────
-        //    if (receipt.TotalAmount > 0m)
-        //        y = DrawLeft(canvas, ColTwoRight("TOTAL AMOUNT",
-        //            "N" + receipt.TotalAmount.ToString("###,###.00"), _charsPerLine), boldPaint, y, lineHeight);
-
-        //    if (receipt.AmountPaid > 0m)
-        //        y = DrawLeft(canvas, ColTwoRight("AMOUNT PAID",
-        //            "N" + receipt.AmountPaid.ToString("###,###.00"), _charsPerLine), boldPaint, y, lineHeight);
-
-        //    if (receipt.AmountLeft > 0m)
-        //        y = DrawLeft(canvas, ColTwoRight("BALANCE DUE",
-        //            "N" + receipt.AmountLeft.ToString("###,###.00"), _charsPerLine), boldPaint, y, lineHeight);
-
-        //    y = DrawCentered(canvas, Divider('=', _charsPerLine), normalPaint, width, y, lineHeight);
-
-        //    y = DrawCentered(canvas, receipt.FooterLine2 ?? "POWERED BY OSOFTPAY", boldPaint, width, y, lineHeight);
-        //    y = DrawCentered(canvas, Divider('=', _charsPerLine), normalPaint, width, y, lineHeight);
-
-        //    y += BODY_PADDING;
-        //    return y;
-        //}
-
+     
         private static int DrawCentered(Canvas canvas, string text, Paint paint, int width, int y, float lineHeight)
         {
             if (canvas != null)
