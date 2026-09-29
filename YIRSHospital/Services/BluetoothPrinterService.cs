@@ -769,6 +769,12 @@ namespace YIRSHospital.Services
             if (!string.IsNullOrWhiteSpace(receipt.SuperAgent))
                 y = DrawLeft(canvas, Col("S.Agent", receipt.SuperAgent, _charsPerLine), normalPaint, y, lineHeight);
 
+            if (!string.IsNullOrWhiteSpace(receipt.PatientName))
+                y = DrawLeft(canvas, Col("Patient", receipt.PatientName, _charsPerLine), normalPaint, y, lineHeight);
+
+            if (!string.IsNullOrWhiteSpace(receipt.PatientNo))
+                y = DrawLeft(canvas, Col("Pt. ID", receipt.PatientNo, _charsPerLine), normalPaint, y, lineHeight);
+
             y = DrawCentered(canvas, Divider('-', _charsPerLine), normalPaint, width, y, lineHeight);
 
             // ── Items ────────────────────────────────────────────────────
@@ -1519,13 +1525,16 @@ namespace YIRSHospital.Services
         public string StoreName { get; set; } = "YOBE STATE SPECIALIST HOSPITAL";
         public string StoreSubTitle { get; set; }
         public string StoreAddress { get; set; } = "Yobe State, Nigeria";
-        public string StorePhone { get; set; } = "Contact: +234 907 070 1616";
+        public string StorePhone { get; set; } = "Contact: 07017639494, 09125348962";
         public string ReceiptBannerText { get; set; } = "OFFICIAL RECEIPT";
         public string ReceiptNumber { get; set; } = "N/A";
         public string AgentName { get; set; }
         public string CollectionPoint { get; set; }
         public string Consultant { get; set; }
         public string SuperAgent { get; set; }
+
+        public string PatientName { get; set; }
+        public string PatientNo { get; set; }
         public DateTime PrintDate { get; set; } = DateTime.Now;
 
         public List<ReceiptItem> Items { get; set; } = new List<ReceiptItem>();

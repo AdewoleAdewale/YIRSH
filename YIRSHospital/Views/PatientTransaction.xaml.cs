@@ -225,7 +225,11 @@ namespace YIRSHospital.Views
 
             // Details Grid
             var detailsStack = new StackLayout { Spacing = 6 };
+            string displayPayer = !string.IsNullOrWhiteSpace(transaction.Payer) ? transaction.Payer : _currentResponse?.PatientName;
+            string displayId = !string.IsNullOrWhiteSpace(transaction.HospitalNo) ? transaction.HospitalNo : _currentResponse?.PatientNo;
             detailsStack.Children.Add(CreateDetailRow("Transaction ID:", transaction.TransactionId));
+            detailsStack.Children.Add(CreateDetailRow("Patient Name:", displayPayer));
+            detailsStack.Children.Add(CreateDetailRow("Patient ID:", displayId));
             detailsStack.Children.Add(CreateDetailRow("Date:", transaction.FormattedDate));
             detailsStack.Children.Add(CreateDetailRow("Amount:", $"₦{transaction.Amount:N2}"));
 

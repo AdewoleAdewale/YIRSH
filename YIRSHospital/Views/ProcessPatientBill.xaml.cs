@@ -431,6 +431,8 @@ namespace YIRSHospital.Views
                     BarcodeLabel = $"https://yobe.osoftpay.net/Singlecollections/Verify?TransactId={_lastResult.TransactionNo}", // Triggers the native QR Code verification link
                     AgentName = LoginPage.Name,
                     CollectionPoint = LoginPage.CollectionPoint ?? _lastResult.Department,
+                    PatientName = PatientNameLabel.Text ?? _lastResult.PatientName, // Binds patient name
+                    PatientNo = _lastResult.PatientNo,    // Binds patient number
                     PrintDate = DateTime.Now,
                     Items = receiptItems,
                     TotalAmount = _lastResult.TotalAmount,
