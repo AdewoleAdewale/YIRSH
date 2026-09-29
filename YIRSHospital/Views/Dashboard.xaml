@@ -246,7 +246,7 @@
                                     </yummy:PancakeView>
                                 </Grid>
                             </StackLayout>
-                         
+
                         </yummy:PancakeView>
 
                         <StackLayout Orientation="Horizontal" Spacing="8" Padding="16,12,16,0">
@@ -309,9 +309,67 @@
                                 <TapGestureRecognizer Tapped="OnNavigateProcessBill"/>
                             </yummy:PancakeView.GestureRecognizers>
                         </yummy:PancakeView>
+                        <!-- ═══════════════ BILLING TOOLS (same actions as the staff dashboard) ═══════════════ -->
+                        <Grid Margin="16,14,16,0" ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <yummy:PancakeView Grid.Column="0" Style="{StaticResource QuickTile}">
+                                <StackLayout Spacing="6">
+                                    <yummy:PancakeView Style="{StaticResource TileBadge}" BackgroundColor="{StaticResource MintFill}">
+                                        <Label Text="R" Style="{StaticResource TileBadgeText}" TextColor="{StaticResource MintText}"/>
+                                    </yummy:PancakeView>
+                                    <Label Text="Raise bill" Style="{StaticResource TileCaption}"/>
+                                </StackLayout>
+                                <yummy:PancakeView.GestureRecognizers>
+                                    <TapGestureRecognizer Tapped="OnNavigateRaiseBill"/>
+                                </yummy:PancakeView.GestureRecognizers>
+                            </yummy:PancakeView>
+
+                            <yummy:PancakeView Grid.Column="1" Style="{StaticResource QuickTile}">
+                                <StackLayout Spacing="6">
+                                    <yummy:PancakeView Style="{StaticResource TileBadge}" BackgroundColor="#E6F1FB">
+                                        <Label Text="C" Style="{StaticResource TileBadgeText}" TextColor="#185FA5"/>
+                                    </yummy:PancakeView>
+                                    <Label Text="Confirm" Style="{StaticResource TileCaption}"/>
+                                </StackLayout>
+                                <yummy:PancakeView.GestureRecognizers>
+                                    <TapGestureRecognizer Tapped="OnNavigateConfirmPayment"/>
+                                </yummy:PancakeView.GestureRecognizers>
+                            </yummy:PancakeView>
+
+                            <yummy:PancakeView Grid.Column="2" Style="{StaticResource QuickTile}">
+                                <StackLayout Spacing="6">
+                                    <yummy:PancakeView Style="{StaticResource TileBadge}" BackgroundColor="{StaticResource AmberFill}">
+                                        <Label Text="V" Style="{StaticResource TileBadgeText}" TextColor="{StaticResource AmberText}"/>
+                                    </yummy:PancakeView>
+                                    <Label Text="Verify" Style="{StaticResource TileCaption}"/>
+                                </StackLayout>
+                                <yummy:PancakeView.GestureRecognizers>
+                                    <TapGestureRecognizer Tapped="OnNavigateVerifyPayment"/>
+                                </yummy:PancakeView.GestureRecognizers>
+                            </yummy:PancakeView>
+
+                            <yummy:PancakeView Grid.Column="3" Style="{StaticResource QuickTile}">
+                                <StackLayout Spacing="6">
+                                    <yummy:PancakeView Style="{StaticResource TileBadge}" BackgroundColor="#EEEDFE">
+                                        <Label Text="B" Style="{StaticResource TileBadgeText}" TextColor="#534AB7"/>
+                                    </yummy:PancakeView>
+                                    <Label Text="Bills" Style="{StaticResource TileCaption}"/>
+                                </StackLayout>
+                                <yummy:PancakeView.GestureRecognizers>
+                                    <TapGestureRecognizer Tapped="OnNavigateBillHistory"/>
+                                </yummy:PancakeView.GestureRecognizers>
+                            </yummy:PancakeView>
+                        </Grid>
+
                         <!-- ═══════════════ HOSPITAL WORKFLOW ACTIONS ═══════════════ -->
                         <!-- ═══════════════ HOSPITAL WORKFLOW ACTIONS (AGENT) ═══════════════ -->
-                 
+
 
                         <Grid Margin="16,10,16,0" ColumnSpacing="8">
                             <Grid.ColumnDefinitions>
@@ -369,7 +427,7 @@
                                 </yummy:PancakeView.GestureRecognizers>
                             </yummy:PancakeView>
                         </Grid>
-                        
+
 
                         <Grid Margin="16,20,16,8">
                             <Grid.ColumnDefinitions>
@@ -446,7 +504,7 @@
                                 </Grid>
                             </yummy:PancakeView>
                         </StackLayout>
-                  
+
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
 
@@ -457,16 +515,16 @@
                     </StackLayout>
                 </CollectionView.EmptyView>
 
-                
+
                 <CollectionView.Footer>
                     <BoxView HeightRequest="24" Color="Transparent"/>
-                    
+
                 </CollectionView.Footer>
 
-        
+
             </CollectionView>
 
-      
+
         </RefreshView>
         <!-- ───────────────────────── LOADING ───────────────────────── -->
         <ContentView x:Name="LoadingOverlay"
@@ -494,7 +552,7 @@
                 </StackLayout>
             </yummy:PancakeView>
         </ContentView>
-       
+
 
     </Grid>
 </ContentPage>

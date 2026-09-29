@@ -391,6 +391,32 @@ namespace YIRSHospital.Views
             }
         }
 
+        private async void OnNavigateVerifyPayment(object sender, EventArgs e)
+        {
+            try
+            {
+                var page = new Views.Staff.VerifyTransaction();
+                await SafeNavigateAsync(() => Navigation.PushAsync(page));
+            }
+            catch (Exception ex)
+            {
+                HandleException(ex, "Failed to load Verify Payment module");
+            }
+        }
+
+        private async void OnNavigateBillHistory(object sender, EventArgs e)
+        {
+            try
+            {
+                var page = new Views.Staff.StaffBillHistory();
+                await SafeNavigateAsync(() => Navigation.PushAsync(page));
+            }
+            catch (Exception ex)
+            {
+                HandleException(ex, "Failed to load Bill History module");
+            }
+        }
+
         private async void NewPayment_Tapped(object sender, EventArgs e)
         {
             try

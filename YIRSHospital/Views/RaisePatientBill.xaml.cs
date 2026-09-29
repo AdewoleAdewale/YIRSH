@@ -16,8 +16,11 @@ namespace YIRSHospital.Views
 {
     public partial class RaisePatientBill : ContentPage
     {
-        private readonly HospitalViewModel _viewModel; 
+        private readonly HospitalViewModel _viewModel;
         private bool _popOnSheetClose = false;
+        // Set only for Hospital-category agents, who have no login-locked department
+        // (Billers staff always resolve through StaffContext.Department instead).
+        private string _agentSelectedDepartment;
         private TaskCompletionSource<bool> _sheetResult;
 
         private readonly List<DepartmentServiceItem> _allServices = new List<DepartmentServiceItem>();
@@ -39,8 +42,14 @@ namespace YIRSHospital.Views
                 string staffDept = ResolveStaffDepartment();
                 if (string.IsNullOrWhiteSpace(staffDept))
                 {
-                    await DisplayAlert("Configuration Error", "No department assigned to this staff account.", "OK");
-                    return;
+                    // Regular agents aren't locked to a department at login, so let
+                    // them pick one. Staff never reach this branch.
+                    staffDept = await PickDepartmentAsync();
+                    if (string.IsNullOrWhiteSpace(staffDept))
+                    {
+                        await Navigation.PopAsync();
+                        return;
+                    }
                 }
 
                 await LoadServicesAsync(staffDept);
@@ -66,9 +75,42 @@ namespace YIRSHospital.Views
         /// </summary>
         private string ResolveStaffDepartment()
         {
-            return !string.IsNullOrWhiteSpace(StaffContext.Department)
-                ? StaffContext.Department
-                : SessionService.CurrentDepartment;
+            if (!string.IsNullOrWhiteSpace(StaffContext.Department))
+                return StaffContext.Department;
+
+            if (!string.IsNullOrWhiteSpace(_agentSelectedDepartment))
+                return _agentSelectedDepartment;
+
+            return SessionService.CurrentDepartment;
+        }
+
+        /// <summary>
+        /// Lets a regular agent choose which department to raise the bill for.
+        /// Returns null if the list can't be loaded or the agent cancels.
+        /// </summary>
+        private async Task<string> PickDepartmentAsync()
+        {
+            UserDialogs.Instance.ShowLoading("Loading departments...");
+            var result = await HospitalApiService.GetDepartmentsAsync(HospitalContext.Code);
+            UserDialogs.Instance.HideLoading();
+
+            var names = result.Success && result.Data != null
+                ? result.Data.Where(d => !string.IsNullOrWhiteSpace(d.name)).Select(d => d.name.Trim()).Distinct().ToArray()
+                : new string[0];
+
+            if (names.Length == 0)
+            {
+                await DisplayAlert("Error", result.ErrorMessage ?? "No departments available for this hospital.", "OK");
+                return null;
+            }
+
+            var choice = await DisplayActionSheet("Raise bill for which department?", "Cancel", null, names);
+            if (string.IsNullOrWhiteSpace(choice) || choice == "Cancel")
+                return null;
+
+            _agentSelectedDepartment = choice;
+            BindingContext = new { StaffDepartment = choice };
+            return choice;
         }
 
         private async Task LoadServicesAsync(string departmentName)
