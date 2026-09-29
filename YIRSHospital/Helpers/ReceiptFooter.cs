@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using Xamarin.Forms;
@@ -133,7 +132,8 @@ namespace YIRSH.Helpers
         /// transaction ID, watermark, feed. Append BEFORE the paper-cut command.
         /// Width is ~310 dots at scale 2 for an 18-digit ID, fits 58mm (384 dots) printers.
         /// </summary>
-        public static byte[] BuildEscPos(string transactionId)
+        /// <param name="printerDots">Optional printer width in dots (default 384).</param>
+        public static byte[] BuildEscPos(string transactionId, int printerDots = 384)
         {
             var o = new List<byte>();
             o.AddRange(new byte[] { 0x1B, 0x61, 0x01 }); // center
@@ -142,6 +142,18 @@ namespace YIRSH.Helpers
             {
                 bool[] row = BuildPixelRow(transactionId.Trim(), 2);
                 int height = 60;
+
+                // If the generated barcode row is narrower than the printer width,
+                // pad it on both sides so the raster image occupies the full paper width
+                // and prints centered.
+                if (row.Length < printerDots)
+                {
+                    var padded = new bool[printerDots];
+                    int leftPad = (printerDots - row.Length) / 2;
+                    for (int i = 0; i < row.Length; i++) padded[leftPad + i] = row[i];
+                    row = padded;
+                }
+
                 int widthBytes = (row.Length + 7) / 8;
                 var line = new byte[widthBytes];
                 for (int x = 0; x < row.Length; x++)

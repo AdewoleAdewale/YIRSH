@@ -8,8 +8,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-
-
+using YIRSH.Helpers; // added for Code128
 
 namespace YIRSHospital.Services
 {
@@ -470,11 +469,11 @@ namespace YIRSHospital.Services
 
 
         private byte[] BuildPrintBuffer(
-    ReceiptData receipt,
-    string logoAssetName,
-    WatermarkMode watermarkMode,
-    string watermarkText,
-    string watermarkLogoAssetName)
+           ReceiptData receipt,
+           string logoAssetName,
+           WatermarkMode watermarkMode,
+           string watermarkText,
+           string watermarkLogoAssetName)
         {
             var ms = new MemoryStream(8192);
             try
@@ -506,6 +505,16 @@ namespace YIRSHospital.Services
 
                 if (qrData != null)
                 {
+                    // Print a centered Code128 raster barcode first (keeps it legible).
+                    try
+                    {
+                        WriteCenteredCode128(ms, qrData, scale: 2, height: 60);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log($"Centered Code128 skipped – {ex.Message}");
+                    }
+
                     const byte qrCellSize = 3;
                     int estimatedQrDots = EstimateQrDots(qrData, qrCellSize);
                     int qrLeftMargin = Math.Max(0, (_printerDots - estimatedQrDots) / 2);
@@ -526,14 +535,66 @@ namespace YIRSHospital.Services
             }
             finally { ms.Dispose(); }
         }
+        private void WriteCenteredCode128(MemoryStream ms, string data, int scale = 2, int height = 60)
+        {
+            if (string.IsNullOrWhiteSpace(data) || ms == null) return;
+
+            const int QUIET_MODULES = 10; // match ReceiptFooter quiet modules
+            var modules = Code128.Encode(data.Trim());
+            if (modules == null || modules.Count == 0) return;
+
+            int totalModules = modules.Count;
+            int scaleLocal = Math.Max(1, scale);
+            int rowLength = (totalModules + QUIET_MODULES * 2) * scaleLocal;
+
+            // If barcode is wider than paper, reduce scale to fit.
+            if (rowLength > _printerDots)
+            {
+                scaleLocal = Math.Max(1, _printerDots / (totalModules + QUIET_MODULES * 2));
+                rowLength = (totalModules + QUIET_MODULES * 2) * scaleLocal;
+            }
+
+            int widthBytes = (rowLength + 7) / 8;
+            var line = new byte[widthBytes];
+
+            // Build one horizontal row (replicated for 'height' lines)
+            for (int m = 0; m < totalModules; m++)
+            {
+                if (!modules[m]) continue;
+                int baseIndex = (QUIET_MODULES + m) * scaleLocal;
+                for (int k = 0; k < scaleLocal; k++)
+                {
+                    int idx = baseIndex + k;
+                    line[idx / 8] |= (byte)(0x80 >> (idx % 8));
+                }
+            }
+
+            int leftMarginDots = Math.Max(0, (_printerDots - rowLength) / 2);
+
+            // Emit commands: set left margin, GS v 0 raster, raster lines, reset margin
+            ms.Write(CMD_ALIGN_LEFT);
+            ms.Write(SetLeftMargin(leftMarginDots));
+
+            ms.Write(new byte[] {
+                0x1D, 0x76, 0x30, 0x00,
+                (byte)(widthBytes & 0xFF), (byte)(widthBytes >> 8),
+                (byte)(height & 0xFF), (byte)(height >> 8)
+            });
+
+            for (int y = 0; y < height; y++)
+                ms.Write(line, 0, line.Length);
+
+            ms.Write(CMD_MARGIN_RESET);
+            ms.Write(CMD_LF);
+        }
 
 
         private byte[] BuildCompositedBodyRaster(
-    ReceiptData receipt,
-    string logoAssetName,
-    WatermarkMode watermarkMode,
-    string watermarkText,
-    string watermarkLogoAssetName)
+         ReceiptData receipt,
+         string logoAssetName,
+         WatermarkMode watermarkMode,
+         string watermarkText,
+         string watermarkLogoAssetName)
         {
             int width = (_printerDots / 8) * 8;
 
@@ -600,7 +661,6 @@ namespace YIRSHospital.Services
                 bannerPaint.Dispose();
             }
         }
-
 
         //private byte[] BuildCompositedBodyRaster(
         //    ReceiptData receipt,
