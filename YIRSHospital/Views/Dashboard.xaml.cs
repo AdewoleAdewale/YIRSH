@@ -9,6 +9,7 @@ using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using Xamarin.CommunityToolkit.Extensions;
 using Xamarin.Essentials;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
@@ -382,7 +383,13 @@ namespace YIRSHospital.Views
         {
             try
             {
-                var page = new Views.ConfirmPatientPayment();
+                var info = await HospitalApiService.GetHospitalInfoAsync(HospitalContext.Code);
+                           if (info.Success && info.Data != null)
+                           if (info.Success && info.Data != null && !string.IsNullOrWhiteSpace(info.Data.code))
+                
+                    await HospitalContext.SelectAsync(info.Data.code, info.Data.displayName);
+                    Device.BeginInvokeOnMainThread(ApplyHospitalToViewModel);
+                    var page = new Views.ConfirmPatientPayment();
                 await SafeNavigateAsync(() => Navigation.PushAsync(page));
             }
             catch (Exception ex)
@@ -813,8 +820,28 @@ namespace YIRSHospital.Views
                 field = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
             }
         }
+
         #endregion
 
+        private async void TapGestureRecognizer_Tapped(object sender, EventArgs e)
+        {
+            try
+            {
+                if (!HospitalContext.IsSelected)
+                {
+                    await DisplayAlert("Hospital Missing", "No hospital is selected. Please log in again.", "OK");
+                    return;
+                }
 
+                // Hospital code and staff email are supplied here, not typed by the agent.
+                var popup = new Views.RegisterOutpatientPopup(HospitalContext.Code, LoginPage.ValidUserMail);
+                Navigation.ShowPopup(popup);
+            }
+            catch (Exception ex)
+            {
+                HandleException(ex, "Failed to open Register Outpatient");
+            }
+
+        }
     }
 }

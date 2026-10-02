@@ -62,6 +62,14 @@ namespace YIRSHospital.Services
         public static async Task SelectAsync(string code, string displayName)
         {
             Code = (code ?? string.Empty).Trim().ToUpperInvariant();
+            var cleanCode = (code ?? string.Empty).Trim().ToUpperInvariant();
+            if (string.IsNullOrWhiteSpace(cleanCode))
+            {
+            Debug.WriteLine("[Hospital] SelectAsync ignored a blank code (kept '" + (Code ?? "none") + "')");
+             return;
+            }
+            
+            Code = cleanCode;
             DisplayName = string.IsNullOrWhiteSpace(displayName) ? Code : displayName.Trim();
             RevenueHead = Preferences.Get(REVHEAD_KEY_PREFIX + Code, null);
 

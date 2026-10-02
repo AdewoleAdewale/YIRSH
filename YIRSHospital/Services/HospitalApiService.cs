@@ -1204,5 +1204,19 @@ namespace YIRSHospital.Services
                 return ApiResult<VerifyTransactionResponse>.Fail(ex.Message);
             }
         }
-    }
+
+        public static async Task<ApiResult<OutpatientRegistrationResponse>> RegisterOutpatientAsync(
+           OutpatientRegistrationRequest payload, CancellationToken ct = default(CancellationToken))
+        {
+            if (payload == null)
+                return ApiResult<OutpatientRegistrationResponse>.Fail("Nothing to register.");
+            if (string.IsNullOrWhiteSpace(payload.HospitalCode))
+                return ApiResult<OutpatientRegistrationResponse>.Fail("No hospital selected. Please log in again.");
+            if (string.IsNullOrWhiteSpace(payload.Email))
+                return ApiResult<OutpatientRegistrationResponse>.Fail("Your session has expired. Please log in again.");
+
+            var result = await PostJsonAsync<OutpatientRegistrationResponse>(AGENTS + "/RegisterOutpatient", payload, ct);
+            return Interpret(result, r => r.Code, r => r.Message);
+        }
+}
 }

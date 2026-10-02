@@ -286,4 +286,28 @@ namespace YIRSHospital.Models
         [JsonProperty("amount")] public decimal Amount { get; set; }
         [JsonProperty("notes")] public string Notes { get; set; }
     }
+
+    public class OutpatientRegistrationRequest
+    {
+        [JsonProperty("FullName")] public string FullName { get; set; }
+        [JsonProperty("PhoneNumber")] public string PhoneNumber { get; set; }
+        [JsonProperty("Gender")] public string Gender { get; set; }
+        [JsonProperty("HospitalCode")] public string HospitalCode { get; set; }
+        [JsonProperty("Email")] public string Email { get; set; }
+    }
+
+    /// <summary>POST /Api/Agents/RegisterOutpatient 200 response.</summary>
+    public class OutpatientRegistrationResponse
+    {
+        [JsonProperty("message")] public string Message { get; set; }
+        [JsonProperty("code")] public string Code { get; set; }
+        [JsonProperty("tempPatientNo")] public string TempPatientNo { get; set; }
+        [JsonProperty("fullName")] public string FullName { get; set; }
+        [JsonProperty("phoneNumber")] public string PhoneNumber { get; set; }
+        [JsonProperty("gender")] public string Gender { get; set; }
+        [JsonProperty("hospitalName")] public string HospitalName { get; set; }
+        [JsonProperty("hospitalCode")] public string HospitalCode { get; set; }
+        [JsonProperty("expiresAt")] public DateTime? ExpiresAt { get; set; }
+        [JsonProperty("note")] public string Note { get; set; }
+    }
 }

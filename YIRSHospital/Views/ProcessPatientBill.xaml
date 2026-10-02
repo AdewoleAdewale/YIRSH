@@ -123,7 +123,18 @@
                                             <Label Text="{Binding NotesText}" FontSize="11" TextColor="{StaticResource TextSecondary}" IsVisible="{Binding HasNotes}"/>
                                             <Label Text="{Binding RaisedByText}" FontSize="10" TextColor="{StaticResource TextSecondary}" IsVisible="{Binding HasRaisedBy}"/>
                                         </StackLayout>
+                                        
                                         <Label Grid.Column="1" Text="{Binding Amount, StringFormat='₦{0:N2}'}" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" VerticalOptions="Center"/>
+                                        
+                                        <StackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2">
+                                            
+                                            <Label Text="{Binding Amount, StringFormat='₦{0:N2}'}" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" HorizontalOptions="End" IsVisible="{Binding ShowAmount}"/>
+                                            
+                                            <!-- DRF billed at 0: cashier keys in the amount -->
+                                            
+                                            <Entry Text="{Binding EnteredAmountText, Mode=TwoWay}" Placeholder="Enter amount" Keyboard="Numeric" WidthRequest="120" FontSize="13" HorizontalTextAlignment="End" TextColor="{StaticResource TextPrimary}" IsVisible="{Binding NeedsAmountInput}" TextChanged="OnDrfAmountChanged"/>
+                                            
+                                        </StackLayout>
                                     </Grid>
                                 </DataTemplate>
                             </CollectionView.ItemTemplate>

@@ -1,0 +1,103 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<xct:Popup xmlns="http://xamarin.com/schemas/2014/forms"
+           xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+           xmlns:xct="http://xamarin.com/schemas/2020/toolkit"
+           x:Class="YIRSHospital.Views.RegisterOutpatientPopup"
+           Color="Transparent"
+           IsLightDismissEnabled="False">
+
+    <Frame BackgroundColor="White" CornerRadius="16" Padding="0" HasShadow="False" IsClippedToBounds="True">
+        <Grid>
+
+            <!-- ── FORM ── -->
+            <ScrollView x:Name="FormSheet">
+                <StackLayout Padding="20" Spacing="12">
+                    <Label Text="Register Outpatient" FontSize="18" FontAttributes="Bold" TextColor="#1A202C"/>
+                    <Label Text="Generates a temporary patient number valid for 24 hours." FontSize="12" TextColor="#718096"/>
+
+                    <Label Text="Full Name" FontSize="13" FontAttributes="Bold" TextColor="#1A202C"/>
+                    <Entry x:Name="FullNameEntry" Placeholder="Patient's full name" TextColor="#1A202C" Keyboard="Text"/>
+
+                    <Label Text="Phone Number" FontSize="13" FontAttributes="Bold" TextColor="#1A202C"/>
+                    <Entry x:Name="PhoneEntry" Placeholder="08012345678" TextColor="#1A202C" Keyboard="Telephone" MaxLength="14"/>
+
+                    <Label Text="Gender" FontSize="13" FontAttributes="Bold" TextColor="#1A202C"/>
+                    <Picker x:Name="GenderPicker" Title="Select gender" TextColor="#1A202C">
+                        <Picker.ItemsSource>
+                            <x:Array Type="{x:Type x:String}">
+                                <x:String>Male</x:String>
+                                <x:String>Female</x:String>
+                            </x:Array>
+                        </Picker.ItemsSource>
+                    </Picker>
+
+                    <Label x:Name="ValidationLabel" TextColor="#B91C1C" FontSize="12" IsVisible="False"/>
+
+                    <ActivityIndicator x:Name="BusyIndicator" Color="#004225" IsRunning="False" IsVisible="False"/>
+
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="10" Margin="0,6,0,0">
+                        <Button x:Name="CancelButton" Grid.Column="0" Text="Cancel" BackgroundColor="#E2E8F0" TextColor="#1A202C"
+                                CornerRadius="10" HeightRequest="46" Clicked="OnCancelClicked"/>
+                        <Button x:Name="RegisterButton" Grid.Column="1" Text="Register" BackgroundColor="#004225" TextColor="White"
+                                FontAttributes="Bold" CornerRadius="10" HeightRequest="46" Clicked="OnRegisterClicked"/>
+                    </Grid>
+                </StackLayout>
+            </ScrollView>
+
+            <!-- ── SUCCESS SHEET ── -->
+            <ScrollView x:Name="SuccessSheet" IsVisible="False">
+                <StackLayout Padding="20" Spacing="10">
+                    <Label Text="✅" FontSize="40" HorizontalOptions="Center"/>
+                    <Label Text="Registration Successful" FontSize="17" FontAttributes="Bold" TextColor="#166534" HorizontalOptions="Center"/>
+                    <Label x:Name="SuccessMessageLabel" FontSize="12" TextColor="#718096" HorizontalTextAlignment="Center"/>
+
+                    <Frame BackgroundColor="#F0FDF4" BorderColor="#BBF7D0" CornerRadius="12" Padding="14" HasShadow="False">
+                        <StackLayout Spacing="2" HorizontalOptions="Center">
+                            <Label Text="Patient ID" FontSize="11" TextColor="#718096" HorizontalOptions="Center"/>
+                            <Label x:Name="PatientNoLabel" FontSize="26" FontAttributes="Bold" TextColor="#004225" HorizontalOptions="Center"/>
+                        </StackLayout>
+                    </Frame>
+
+                    <Button Text="Copy Patient ID" BackgroundColor="#EEF2FF" TextColor="#004225" FontAttributes="Bold"
+                            CornerRadius="10" HeightRequest="44" Clicked="OnCopyPatientNoClicked"/>
+
+                    <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="Auto,*" ColumnSpacing="12" RowSpacing="4" Margin="0,4,0,0">
+                        <Label Grid.Row="0" Grid.Column="0" Text="Name" FontSize="12" TextColor="#718096"/>
+                        <Label Grid.Row="0" Grid.Column="1" x:Name="SuccessNameLabel" FontSize="12" FontAttributes="Bold" TextColor="#1A202C" HorizontalTextAlignment="End"/>
+                        <Label Grid.Row="1" Grid.Column="0" Text="Phone" FontSize="12" TextColor="#718096"/>
+                        <Label Grid.Row="1" Grid.Column="1" x:Name="SuccessPhoneLabel" FontSize="12" FontAttributes="Bold" TextColor="#1A202C" HorizontalTextAlignment="End"/>
+                        <Label Grid.Row="2" Grid.Column="0" Text="Hospital" FontSize="12" TextColor="#718096"/>
+                        <Label Grid.Row="2" Grid.Column="1" x:Name="SuccessHospitalLabel" FontSize="12" FontAttributes="Bold" TextColor="#1A202C" HorizontalTextAlignment="End"/>
+                        <Label Grid.Row="3" Grid.Column="0" Text="Expires" FontSize="12" TextColor="#718096"/>
+                        <Label Grid.Row="3" Grid.Column="1" x:Name="SuccessExpiryLabel" FontSize="12" FontAttributes="Bold" TextColor="#B45309" HorizontalTextAlignment="End"/>
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="10" Margin="0,6,0,0">
+                        <Button Grid.Column="0" Text="Register Another" BackgroundColor="#E2E8F0" TextColor="#1A202C"
+                                CornerRadius="10" HeightRequest="46" Clicked="OnRegisterAnotherClicked"/>
+                        <Button Grid.Column="1" Text="Done" BackgroundColor="#004225" TextColor="White" FontAttributes="Bold"
+                                CornerRadius="10" HeightRequest="46" Clicked="OnDoneClicked"/>
+                    </Grid>
+                </StackLayout>
+            </ScrollView>
+
+            <!-- ── FAILURE SHEET ── -->
+            <ScrollView x:Name="FailureSheet" IsVisible="False">
+                <StackLayout Padding="20" Spacing="12">
+                    <Label Text="⚠️" FontSize="40" HorizontalOptions="Center"/>
+                    <Label Text="Registration Failed" FontSize="17" FontAttributes="Bold" TextColor="#B91C1C" HorizontalOptions="Center"/>
+                    <Frame BackgroundColor="#FEF2F2" BorderColor="#FECACA" CornerRadius="12" Padding="14" HasShadow="False">
+                        <Label x:Name="FailureMessageLabel" FontSize="13" TextColor="#7F1D1D" HorizontalTextAlignment="Center"/>
+                    </Frame>
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="10" Margin="0,6,0,0">
+                        <Button Grid.Column="0" Text="Close" BackgroundColor="#E2E8F0" TextColor="#1A202C"
+                                CornerRadius="10" HeightRequest="46" Clicked="OnDoneClicked"/>
+                        <Button Grid.Column="1" Text="Try Again" BackgroundColor="#004225" TextColor="White" FontAttributes="Bold"
+                                CornerRadius="10" HeightRequest="46" Clicked="OnTryAgainClicked"/>
+                    </Grid>
+                </StackLayout>
+            </ScrollView>
+
+        </Grid>
+    </Frame>
+</xct:Popup>

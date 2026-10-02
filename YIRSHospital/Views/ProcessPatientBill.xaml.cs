@@ -1,7 +1,9 @@
 ﻿using Acr.UserDialogs;
+using Android.Accounts;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -11,6 +13,9 @@ using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
 using YIRSHospital.Models;
 using YIRSHospital.Services;
+using static Android.Content.ClipData;
+using static Android.InputMethodServices.Keyboard;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace YIRSHospital.Views
 {
@@ -31,6 +36,12 @@ namespace YIRSHospital.Views
             public bool HasNotes { get; set; }
             public string RaisedByText { get; set; }
             public bool HasRaisedBy { get; set; }
+
+           // DRF lines that came back from the API with a zero amount need the
+           // cashier to key the amount in; everything else shows the fixed amount.
+           public bool NeedsAmountInput { get; set; }
+           public bool ShowAmount { get { return !NeedsAmountInput; } }
+            public string EnteredAmountText { get; set; }
         }
 
         /// <summary>
@@ -47,6 +58,7 @@ namespace YIRSHospital.Views
 
         private PatientBillResponse _currentBill;
         private ProcessBillResponse _lastResult;
+        private List<PendingServiceDisplay> _displayItems = new List<PendingServiceDisplay>();
         private string _selectedPaymentMethod = "Cash";
         private bool _pinVisible = false;
 
@@ -57,9 +69,23 @@ namespace YIRSHospital.Views
             ShowIdleState();
         }
 
-        // ─────────────────────────────────────────────────────────
-        //  FETCH BILL
-        // ─────────────────────────────────────────────────────────
+
+        private static bool IsDrfService(string serviceName)
+        {
+          return (serviceName ?? string.Empty).IndexOf("DRF", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+       private static bool TryParseAmount(string text, out decimal amount)
+        {
+          amount = 0;
+           if (string.IsNullOrWhiteSpace(text)) return false;
+           return decimal.TryParse(text.Replace(",", string.Empty).Trim(),
+          NumberStyles.Number, CultureInfo.InvariantCulture, out amount) && amount > 0;
+        }
+
+// ─────────────────────────────────────────────────────────
+//  FETCH BILL
+// ─────────────────────────────────────────────────────────
 
         private async void OnFetchBillClicked(object sender, EventArgs e)
         {
@@ -151,15 +177,18 @@ namespace YIRSHospital.Views
                 NotesText = string.IsNullOrWhiteSpace(s.Notes) ? null : $"Note: {s.Notes}",
                 HasNotes = !string.IsNullOrWhiteSpace(s.Notes),
                 RaisedByText = string.IsNullOrWhiteSpace(s.RaisedByName) ? null : $"Raised by {s.RaisedByName}",
-                HasRaisedBy = !string.IsNullOrWhiteSpace(s.RaisedByName)
+                HasRaisedBy = !string.IsNullOrWhiteSpace(s.RaisedByName),
+                NeedsAmountInput = IsDrfService(s.ServiceName) && s.Amount <= 0
             }).ToList();
 
+            _displayItems = displayItems;
+            PendingServicesCollection.HeightRequest = displayItems.Any(d => d.NeedsAmountInput) ? 300 : 180;
             PendingServicesCollection.ItemsSource = displayItems;
-
             IdleStateCard.IsVisible = false;
             NotFoundCard.IsVisible = false;
             ResultCard.IsVisible = false;
             BillDetailsCard.IsVisible = true;
+            IdleStateCard.IsVisible = false;
         }
 
         private void ShowIdleState()
@@ -212,6 +241,34 @@ namespace YIRSHospital.Views
         //  PAYMENT METHOD
         // ─────────────────────────────────────────────────────────
 
+        private void OnDrfAmountChanged(object sender, TextChangedEventArgs e)
+        {
+            var item = (sender as Entry)?.BindingContext as PendingServiceDisplay;
+           if (item == null) return;
+
+            item.EnteredAmountText = e.NewTextValue;
+           UpdateGrandTotalLabel();
+       }
+
+       /// <summary>Bill total plus any DRF amounts the cashier has keyed in so far.</summary>
+       private decimal GetEffectiveTotal()
+        {
+           if (_currentBill == null) return 0;
+
+           decimal total = _currentBill.GrandTotal;
+           foreach (var item in _displayItems.Where(d => d.NeedsAmountInput))
+            {
+                decimal entered;
+               if (TryParseAmount(item.EnteredAmountText, out entered))
+                   total += entered;
+           }
+           return total;
+       }
+
+       private void UpdateGrandTotalLabel()
+        {
+    GrandTotalLabel.Text = $"₦{GetEffectiveTotal():N2}";
+            }
         private void OnCashSelected(object sender, EventArgs e)
         {
             _selectedPaymentMethod = "Cash";
@@ -273,25 +330,46 @@ namespace YIRSHospital.Views
                 return;
             }
 
-
             string refCode = ReferenceEntry.Text?.Trim();
             if (_selectedPaymentMethod != "Cash" && string.IsNullOrWhiteSpace(refCode))
             {
-                await DisplayAlert("Validation", "Payment Reference is required for Transfer or Card.", "OK");
+                await DisplayAlert(
+                    "Validation",
+                    "Payment Reference is required for Transfer or Card.",
+                    "OK");
+
                 return;
+            }
+
+            foreach (var item in _displayItems.Where(d => d.NeedsAmountInput))
+            {
+                decimal enteredAmount;
+                if (!TryParseAmount(item.EnteredAmountText, out enteredAmount))
+                {
+                    await DisplayAlert(
+                        "Validation",
+                        $"Enter an amount greater than zero for {item.ServiceName}.",
+                        "OK");
+
+                    return;
+                }
             }
 
             bool confirmed = await DisplayAlert(
                 "Confirm Payment",
-                $"Process a {_selectedPaymentMethod} payment of ₦{_currentBill.GrandTotal:N2} for {_currentBill.PatientName}?",
-                "Confirm", "Cancel");
+                $"Process a {_selectedPaymentMethod} payment of " +
+                $"₦{GetEffectiveTotal():N2} for {_currentBill.PatientName}?",
+                "Confirm",
+                "Cancel");
 
-            if (!confirmed) return;
+            if (!confirmed)
+                return;
 
             UserDialogs.Instance.ShowLoading("Processing bill payment...");
 
             bool isDrfDepartment = DrfDepartments.Contains(
-                (_currentBill.Department ?? string.Empty).Trim(), StringComparer.OrdinalIgnoreCase);
+                (_currentBill.Department ?? string.Empty).Trim(),
+                StringComparer.OrdinalIgnoreCase);
 
             var payload = new ProcessBillRequest
             {
@@ -300,13 +378,35 @@ namespace YIRSHospital.Views
                 Department = _currentBill.Department,
                 Email = LoginPage.ValidUserMail,
                 Pin = pin,
-             
                 PaymentMethod = _selectedPaymentMethod,
-                Services = _currentBill.Services.Select(s => new ProcessBillServiceItem
+                PaymentReference = refCode,
+                Services = _currentBill.Services.Select((service, index) =>
                 {
-                    ServiceName = s.ServiceName,
-                    Quantity = 1,
-                    Amount = s.ServiceName.IndexOf("DRF", StringComparison.OrdinalIgnoreCase) >= 0 ? s.Amount : 0
+                    decimal amount = 0;
+
+                    if (isDrfDepartment && IsDrfService(service.ServiceName))
+                    {
+                        amount = service.Amount;
+
+                        var row = index < _displayItems.Count
+                            ? _displayItems[index]
+                            : null;
+
+                        decimal enteredAmount;
+                        if (amount <= 0 &&
+                            row != null &&
+                            TryParseAmount(row.EnteredAmountText, out enteredAmount))
+                        {
+                            amount = enteredAmount;
+                        }
+                    }
+
+                    return new ProcessBillServiceItem
+                    {
+                        ServiceName = service.ServiceName,
+                        Quantity = 1,
+                        Amount = amount
+                    };
                 }).ToList()
             };
 
@@ -321,41 +421,46 @@ namespace YIRSHospital.Views
                     return;
                 }
 
-                UserDialogs.Instance.HideLoading();
-
                 var code = result.Data?.Code;
 
                 if (HospitalResponseCodes.RequiresRefetch(code))
                 {
-                    // Code 06 means the bill moved under us — retrying the same payload
-                    // just fails again, so the only useful action is a re-fetch.
-                    bool refetch = await DisplayAlert("Bill Out of Date",
-                        result.ErrorMessage, "Fetch Again", "Cancel");
+                    bool refetch = await DisplayAlert(
+                        "Bill Out of Date",
+                        result.ErrorMessage,
+                        "Fetch Again",
+                        "Cancel");
 
                     if (refetch)
                         await RunFetch(_currentBill.PatientNo);
+
                     return;
                 }
 
                 if (HospitalResponseCodes.IsTransient(code))
                 {
-                    bool retry = await DisplayAlert("Wallet Unavailable",
-                        result.ErrorMessage, "Retry", "Cancel");
+                    bool retry = await DisplayAlert(
+                        "Wallet Unavailable",
+                        result.ErrorMessage,
+                        "Retry",
+                        "Cancel");
 
                     if (retry)
                         OnProcessPaymentClicked(sender, e);
+
                     return;
                 }
 
-                await DisplayAlert("Payment Failed",
-                    result.ErrorMessage ?? "The payment could not be completed.", "OK");
+                await DisplayAlert(
+                    "Payment Failed",
+                    result.ErrorMessage ?? "The payment could not be completed.",
+                    "OK");
             }
             finally
             {
                 UserDialogs.Instance.HideLoading();
             }
         }
-
         private void ShowResultCard(ProcessBillResponse data)
         {
             TransactionNoLabel.Text = string.IsNullOrWhiteSpace(data.TransactionNo) ? "N/A" : data.TransactionNo;

@@ -309,6 +309,31 @@
                                 <TapGestureRecognizer Tapped="OnNavigateProcessBill"/>
                             </yummy:PancakeView.GestureRecognizers>
                         </yummy:PancakeView>
+
+                        <yummy:PancakeView Margin="16,14,16,0"
+BackgroundColor="{StaticResource Brand}"
+CornerRadius="14"
+Padding="16,15"
+HasShadow="True"
+Elevation="6">
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <StackLayout Grid.Column="0" Spacing="2" VerticalOptions="Center">
+                                    <Label Text="Register outpatient" TextColor="{StaticResource OnBrand}" FontSize="16" FontAttributes="Bold"/>
+                                    <Label Text="Get a temporary patient number" Style="{StaticResource Overline}"/>
+                                </StackLayout>
+
+                                <Label Grid.Column="1" Text="→" TextColor="{StaticResource OnBrand}" FontSize="22" VerticalOptions="Center"/>
+                            </Grid>
+                            <yummy:PancakeView.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="TapGestureRecognizer_Tapped"/>
+                            </yummy:PancakeView.GestureRecognizers>
+                        </yummy:PancakeView>
+
                         <!-- ═══════════════ BILLING TOOLS (same actions as the staff dashboard) ═══════════════ -->
                         <Grid Margin="16,14,16,0" ColumnSpacing="8">
                             <Grid.ColumnDefinitions>
