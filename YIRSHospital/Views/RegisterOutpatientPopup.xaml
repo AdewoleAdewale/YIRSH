@@ -16,10 +16,10 @@
                     <Label Text="Generates a temporary patient number valid for 24 hours." FontSize="12" TextColor="#718096"/>
 
                     <Label Text="Full Name" FontSize="13" FontAttributes="Bold" TextColor="#1A202C"/>
-                    <Entry x:Name="FullNameEntry" Placeholder="Patient's full name" TextColor="#1A202C" Keyboard="Text"/>
+                    <Entry x:Name="FullNameEntry" Placeholder="Patient's full name" TextColor="#1A202C" Keyboard="Text" FontSize="12" />
 
                     <Label Text="Phone Number" FontSize="13" FontAttributes="Bold" TextColor="#1A202C"/>
-                    <Entry x:Name="PhoneEntry" Placeholder="08012345678" TextColor="#1A202C" Keyboard="Telephone" MaxLength="14"/>
+                    <Entry x:Name="PhoneEntry" Placeholder="08012345678" TextColor="#1A202C" Keyboard="Telephone" MaxLength="14" FontSize="12"/>
 
                     <Label Text="Gender" FontSize="13" FontAttributes="Bold" TextColor="#1A202C"/>
                     <Picker x:Name="GenderPicker" Title="Select gender" TextColor="#1A202C">

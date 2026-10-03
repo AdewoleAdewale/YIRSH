@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using Nancy.Diagnostics;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -1095,13 +1096,12 @@ namespace YIRSHospital.Services
             return await GetJsonAsync<List<ServiceCatalogItem>>(url, ct);
         }
         // ── 6. Confirm Patient Payment ─────────────────────────────────────
-        public static async Task<ApiResult<ConfirmPaymentResponse>> ConfirmPatientPaymentAsync(
-            string patientNo, CancellationToken ct = default(CancellationToken))
+        public static async Task<ApiResult<ConfirmPaymentResponse>> ConfirmPatientPaymentAsync( string patientNo, CancellationToken ct = default(CancellationToken))
         {
             if (string.IsNullOrWhiteSpace(patientNo))
                 return ApiResult<ConfirmPaymentResponse>.Fail("Patient number is required.");
 
-            var url = AGENTS + "/ConfirmPatientPayment?patientNo=" + Uri.EscapeDataString(patientNo);
+            var url = AGENTS + "/ConfirmPatientPayment?patientNo=" + Uri.EscapeDataString(patientNo) + "?Email=" + LoginPage.ValidUserMail;
             var result = await GetJsonAsync<ConfirmPaymentResponse>(url, ct);
             return Interpret(result, r => r.Code, r => r.Message);
         }
