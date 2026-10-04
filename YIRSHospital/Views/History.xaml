@@ -4,7 +4,7 @@
              xmlns:yummy="clr-namespace:Xamarin.Forms.PancakeView;assembly=Xamarin.Forms.PancakeView"
              x:Class="YIRSHospital.Views.History"    
              Padding="0"
-             BackgroundColor="#F8F9FA"
+             BackgroundColor="White"
              NavigationPage.HasNavigationBar="False">
 
     <ContentPage.Resources>
@@ -47,7 +47,7 @@
                                    BackgroundGradientAngle="0"
                                    HasShadow="True"
                                    Elevation="8">
-                    <StackLayout Padding="20,30,20,25">
+                    <StackLayout Padding="20,0,20,25">
                         <yummy:PancakeView Grid.Row="0"
 
                                Margin="0,20,0,0"
@@ -89,8 +89,7 @@ CornerRadius="0">
                                    Padding="20"
                                    BackgroundColor="White"
                                    CornerRadius="20"
-                                   HasShadow="True"
-                                   Elevation="4"
+                               
                                    VerticalOptions="FillAndExpand">
 
                     <StackLayout Spacing="20">
@@ -98,6 +97,7 @@ CornerRadius="0">
                         <!-- Date Selection Section -->
                         <yummy:PancakeView BackgroundColor="#F8F9FA" 
                                            CornerRadius="15" 
+                                           Elevation="4"
                                            Padding="20,15">
                             <StackLayout Spacing="15">
                                 <Label Text="SELECT DATE RANGE" 

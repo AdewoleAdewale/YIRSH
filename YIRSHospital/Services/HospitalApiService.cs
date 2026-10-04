@@ -578,6 +578,8 @@ namespace YIRSHospital.Services
         }
     }
 
+
+
     #endregion
 
     /// <summary>
@@ -588,6 +590,18 @@ namespace YIRSHospital.Services
     {
         public const string ROOT = "https://yobe.osoftpay.net";
         private const string AGENTS = ROOT + "/Api/Agents";
+
+        /// <summary>
+        /// Maps a hospital code to the suffix used by its dedicated endpoints
+        /// (PaymentHistory{Suffix}, {Suffix}PatientTransact). Null = use the standard endpoints.
+        /// </summary>
+        private static string DedicatedEndpointSuffix(string hospitalCode)
+        {
+            var c = (hospitalCode ?? string.Empty).Trim();
+            if (string.Equals(c, "DAMAGUM", StringComparison.OrdinalIgnoreCase)) return "Damagum";
+            if (string.Equals(c, "POTISKUM", StringComparison.OrdinalIgnoreCase)) return "Potiskum";
+            return null;
+        }
 
         private static readonly Lazy<HttpClient> _insecureClient = new Lazy<HttpClient>(() =>
         {
@@ -748,11 +762,23 @@ namespace YIRSHospital.Services
             if (string.IsNullOrWhiteSpace(hospitalCode))
                 return ApiResult<List<HospitalPaymentHistoryItem>>.Fail("No hospital selected.");
 
-            var url = AGENTS + "/AllHospitalPaymentHistory"
-                    + "?Email=" + Uri.EscapeDataString(email ?? string.Empty)
-                    + "&SearchFrom=" + from.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
-                    + "&SearchTo=" + to.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
+            string query = "?Email=" + Uri.EscapeDataString(email ?? string.Empty)
+                + "&SearchFrom=" + from.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
+                + "&SearchTo=" + to.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+            string url;
+            string dedicated = DedicatedEndpointSuffix(hospitalCode);
+            if (dedicated != null)
+            {
+                // DAMAGUM / POTISKUM have their own endpoint (no HospitalCode param); same response shape.
+                url = AGENTS + "/PaymentHistory" + dedicated + query;
+            }
+            else
+            {
+                // DEFAULT and any other hospital: existing endpoint, unchanged.
+                url = AGENTS + "/AllHospitalPaymentHistory" + query
                     + "&HospitalCode=" + Uri.EscapeDataString(hospitalCode);
+            }
 
             return await GetJsonAsync<List<HospitalPaymentHistoryItem>>(url, ct);
         }
@@ -1124,25 +1150,41 @@ namespace YIRSHospital.Services
         }
 
         // ── 2. Patient Transactions Fetching ──────────────────────────────────
-        public static async Task<ApiResult<PatientTransactionResponse>> GetPatientTransactionsAsync(string patientNo, string hospitalCode = null, int? hospitalId = null, CancellationToken ct = default)
+        public static async Task<ApiResult<PatientTransactionResponse>> GetPatientTransactionsAsync(
+       string patientNo,
+       string hospitalCode = null,
+       int? hospitalId = null,
+       CancellationToken ct = default(CancellationToken))
         {
-            string code = string.IsNullOrWhiteSpace(hospitalCode) ? HospitalContext.Code : hospitalCode;
-            bool isDefault = string.Equals(code, "DEFAULT", StringComparison.OrdinalIgnoreCase) || string.IsNullOrWhiteSpace(code);
+            if (string.IsNullOrWhiteSpace(patientNo))
+                return ApiResult<PatientTransactionResponse>.Fail("Patient number is required.");
 
+            string code = string.IsNullOrWhiteSpace(hospitalCode)
+                ? HospitalContext.Code
+                : hospitalCode;
+
+            bool isDefault = string.Equals(code, "DEFAULT", StringComparison.OrdinalIgnoreCase)
+                || string.IsNullOrWhiteSpace(code);
+
+            string dedicated = DedicatedEndpointSuffix(code);
             string url;
+
             if (isDefault)
             {
-                // DEFAULT uses patientId query param
                 url = $"{AGENTS}/GetPatientTransactions?patientId={Uri.EscapeDataString(patientNo)}";
+            }
+            else if (dedicated != null)
+            {
+                url = $"{AGENTS}/{dedicated}PatientTransact?patientId={Uri.EscapeDataString(patientNo)}";
             }
             else
             {
-                // POTISKUM / DAMAGUM use patientNo & hospitalId/hospitalCode[cite: 6]
-                url = $"{AGENTS}/GetHospitalPatientTransactions?patientNo={Uri.EscapeDataString(patientNo)}";
-                if (hospitalId.HasValue && hospitalId.Value > 0)
-                    url += $"&hospitalId={hospitalId.Value}";
-                else if (!string.IsNullOrWhiteSpace(code))
-                    url += $"&hospitalCode={Uri.EscapeDataString(code)}";
+                int resolvedHospitalId = hospitalId ?? ResolveHospitalId(code);
+
+                url = $"{AGENTS}/GetHospitalPatientTransactions"
+                    + $"?patientNo={Uri.EscapeDataString(patientNo)}"
+                    + $"&hospitalId={resolvedHospitalId}"
+                    + $"&hospitalCode={Uri.EscapeDataString(code)}";
             }
 
             return await GetJsonAsync<PatientTransactionResponse>(url, ct);
