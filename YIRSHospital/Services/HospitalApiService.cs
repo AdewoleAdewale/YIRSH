@@ -1096,14 +1096,15 @@ namespace YIRSHospital.Services
             return await GetJsonAsync<List<ServiceCatalogItem>>(url, ct);
         }
         // ── 6. Confirm Patient Payment ─────────────────────────────────────
-        public static async Task<ApiResult<ConfirmPaymentResponse>> ConfirmPatientPaymentAsync( string patientNo, CancellationToken ct = default(CancellationToken))
+        public static async Task<ApiResult<ConfirmPaymentResponse>> ConfirmPatientPaymentAsync(string patientNo, string email, CancellationToken ct = default(CancellationToken))
         {
-            if (string.IsNullOrWhiteSpace(patientNo))
-                return ApiResult<ConfirmPaymentResponse>.Fail("Patient number is required.");
+            if (string.IsNullOrWhiteSpace(patientNo))return ApiResult<ConfirmPaymentResponse>.Fail("Patient number is required.");
+            if (string.IsNullOrWhiteSpace(email)) return ApiResult<ConfirmPaymentResponse>.Fail("Your session has expired. Please log in again.");
 
-            var url = AGENTS + "/ConfirmPatientPayment?patientNo=" + Uri.EscapeDataString(patientNo) + "?Email=" + LoginPage.ValidUserMail;
+            var url = AGENTS + "/ConfirmPatientPayment?patientNo=" + Uri.EscapeDataString(patientNo) +"&email=" + Uri.EscapeDataString(email);
             var result = await GetJsonAsync<ConfirmPaymentResponse>(url, ct);
-            return Interpret(result, r => r.Code, r => r.Message);
+            var interpreted = Interpret(result, r => r.Code, r => r.Message);
+            if (!interpreted.Success && interpreted.Data != null && interpreted.Data.Code == "02")interpreted.ErrorMessage = "No payment found for this patient in your department.";return interpreted;
         }
 
 

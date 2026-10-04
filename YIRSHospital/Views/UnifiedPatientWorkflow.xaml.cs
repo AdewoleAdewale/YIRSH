@@ -25,6 +25,7 @@ namespace YIRSHospital.Views
         //  NESTED MODELS  (merged from both source files)
         // ─────────────────────────────────────────────────────────
 
+        private const string OutpatientBypassPrefix = "OPD-6740";
         #region Models
 
         public class Department : INotifyPropertyChanged
@@ -281,6 +282,7 @@ namespace YIRSHospital.Views
                 HandleCriticalError("Failed to initialise page", ex);
             }
         }
+
 
         private async void InitializePage()
         {
@@ -662,45 +664,59 @@ namespace YIRSHospital.Views
 
             try
             {
-                _viewModel.IsLoading = true;
-                _viewModel.LoadingMessage = "Verifying patient records…";
 
-                var result = await HospitalApiService.GetPatientTransactionsAsync(
-                    patientNo,
-                    HospitalContext.Code
-                );
-
-                _viewModel.IsLoading = false;
-
-                if (result.Success && result.Data != null && result.Data.Code == "00")
+                if (IsOutpatientBypassNumber(patientNo))
                 {
-                    var data = result.Data;
+                    _viewModel.IsLoading = true;
+                    _viewModel.LoadingMessage = "Verifying patient records…";
+                    
+                    ProceedWithOutpatient(patientNo);
+                 }
 
-                    // 1. CRITICAL: Store the verified patient ID into workflow state
-                    _registeredPatientId = data.PatientNo ?? patientNo;
-                    _registeredPatientname = data.PatientName ?? "N/A";
-
-                    // 2. Display patient summary card
-                    ExistingPatientName.Text = !string.IsNullOrWhiteSpace(data.PatientName) ? data.PatientName : "N/A";
-                    ExistingPatientIdDisplay.Text = _registeredPatientId;
-                    ExistingPatientTotalPaid.Text = $"₦{data.TotalAmount:N2}";
-                    ExistingPatientInfoCard.IsVisible = true;
-
-                    // 3. Pre-fill the payment patient field
-                    if (RegPatientNo != null)
-                        RegPatientNo.Text = _registeredPatientId;
-
-                    // 4. Unlock & Enable Section 2 (Service Selection)
-                    ActivateServicesSection();
-
-                    UserDialogs.Instance.Toast("Patient verified successfully", TimeSpan.FromSeconds(2));
-                }
                 else
                 {
-                    ExistingPatientInfoCard.IsVisible = false;
-                    LockSection(SectionServices, "Complete verification to unlock");
-                    await DisplayAlert("Verification Failed", result.ErrorMessage ?? "Patient record not found.", "OK");
+
+                    _viewModel.IsLoading = true;
+                    _viewModel.LoadingMessage = "Verifying patient records…";
+
+                    var result = await HospitalApiService.GetPatientTransactionsAsync(
+                        patientNo,
+                        HospitalContext.Code
+                    );
+
+                    _viewModel.IsLoading = false;
+
+                    if (result.Success && result.Data != null && result.Data.Code == "00")
+                    {
+                        var data = result.Data;
+
+                        // 1. CRITICAL: Store the verified patient ID into workflow state
+                        _registeredPatientId = data.PatientNo ?? patientNo;
+                        _registeredPatientname = data.PatientName ?? "N/A";
+
+                        // 2. Display patient summary card
+                        ExistingPatientName.Text = !string.IsNullOrWhiteSpace(data.PatientName) ? data.PatientName : "N/A";
+                        ExistingPatientIdDisplay.Text = _registeredPatientId;
+                        ExistingPatientTotalPaid.Text = $"₦{data.TotalAmount:N2}";
+                        ExistingPatientInfoCard.IsVisible = true;
+
+                        // 3. Pre-fill the payment patient field
+                        if (RegPatientNo != null)
+                            RegPatientNo.Text = _registeredPatientId;
+
+                        // 4. Unlock & Enable Section 2 (Service Selection)
+                        ActivateServicesSection();
+
+                        UserDialogs.Instance.Toast("Patient verified successfully", TimeSpan.FromSeconds(2));
+                    }
+                    else
+                    {
+                        ExistingPatientInfoCard.IsVisible = false;
+                        LockSection(SectionServices, "Complete verification to unlock");
+                        await DisplayAlert("Verification Failed", result.ErrorMessage ?? "Patient record not found.", "OK");
+                    }
                 }
+          
             }
             catch (Exception ex)
             {
@@ -1762,6 +1778,43 @@ namespace YIRSHospital.Views
                 CardActivityIndicator.IsRunning = true;
             });
         }
+
+
+        private static bool IsOutpatientBypassNumber(string patientNo)
+        {
+            return !string.IsNullOrWhiteSpace(patientNo)
+                && patientNo.Trim().StartsWith(OutpatientBypassPrefix, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private  void ProceedWithOutpatient(string patientNo)
+        {
+            try
+            {
+                var id = patientNo.Trim().ToUpperInvariant();
+
+                _registeredPatientId = id;
+                _registeredPatientname = "Outpatient";
+
+                ExistingPatientName.Text = "Outpatient";
+                ExistingPatientIdDisplay.Text = id;
+                ExistingPatientTotalPaid.Text = "—";
+                ExistingPatientInfoCard.IsVisible = true;
+
+                if (RegPatientNo != null)
+                    RegPatientNo.Text = id;
+
+                ActivateServicesSection();
+
+                UserDialogs.Instance.Toast("Outpatient — select the services to pay for", TimeSpan.FromSeconds(2));
+            }
+            catch (Exception ex)
+            {
+                _viewModel.IsLoading = false;
+                DisplayAlert("Error", $"Verification failed: {ex.Message}", "OK");
+                HandleError("Could not open service selection", ex);
+            }
+        }
+
 
         // ─────────────────────────────────────────────────────────
         //  LIFECYCLE & HELPERS

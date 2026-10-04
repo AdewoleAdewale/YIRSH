@@ -82,7 +82,7 @@ namespace YIRSHospital.Views
 
             try
             {
-                var result = await HospitalApiService.ConfirmPatientPaymentAsync(patientNo);
+                var result = await HospitalApiService.ConfirmPatientPaymentAsync(patientNo, LoginPage.ValidUserMail);
 
                 if (result.Success && result.Data != null)
                 {
