@@ -26,6 +26,7 @@ namespace YIRSHospital.Views
         // ─────────────────────────────────────────────────────────
 
         private const string OutpatientBypassPrefix = "OPD-6740";
+
         #region Models
 
         public class Department : INotifyPropertyChanged
@@ -667,9 +668,7 @@ namespace YIRSHospital.Views
 
                 if (IsOutpatientBypassNumber(patientNo))
                 {
-                    _viewModel.IsLoading = true;
-                    _viewModel.LoadingMessage = "Verifying patient records…";
-                    
+                   
                     ProceedWithOutpatient(patientNo);
                  }
 

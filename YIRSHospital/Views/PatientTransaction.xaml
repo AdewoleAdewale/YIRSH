@@ -35,7 +35,7 @@
             <yummy:PancakeView BackgroundGradientStartColor="#004225" 
                               BackgroundGradientEndColor="#00875A"
                               BackgroundGradientAngle="135"
-                              Padding="20,20,20,30">
+                              Padding="20,0,20,30">
                 <StackLayout Spacing="15">
 
                     <yummy:PancakeView Grid.Row="0"
@@ -63,10 +63,10 @@ CornerRadius="0">
                     </yummy:PancakeView>
 
                     <!-- Hospital Logo -->
-                    <yummy:PancakeView CornerRadius="40" 
+                    <yummy:PancakeView CornerRadius="10" 
                                       BackgroundColor="White"
-                                      WidthRequest="80" 
-                                      HeightRequest="80"
+                                      WidthRequest="40" 
+                                      HeightRequest="40"
                                       HasShadow="True"
                                       Elevation="10"
                                       HorizontalOptions="Center"
